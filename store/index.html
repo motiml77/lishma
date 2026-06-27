@@ -210,7 +210,7 @@
         let db, auth, storage;
         try {
             const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
+            db = getFirestore(app, 'harav-tabady');
             storage = getStorage(app);
             auth = getAuth(app);
         } catch (e) { console.error("Firebase init error:", e); }
