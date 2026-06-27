@@ -74,8 +74,9 @@ const dstApp = admin.initializeApp({
   storageBucket: DST.bucket,
 }, 'dst');
 
+const { getFirestore } = require('firebase-admin/firestore');
 const srcDb = srcApp.firestore();
-const dstDb = dstApp.firestore();
+const dstDb = getFirestore(dstApp, 'harav-tabady');
 const srcBucket = srcApp.storage().bucket();
 const dstBucket = dstApp.storage().bucket();
 

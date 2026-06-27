@@ -841,8 +841,7 @@
                 const tags = new Set();
                 newsletters.forEach(n => {
                     (n.topics || []).forEach(t => {
-                        const clean = t.replace(/^#/, '').trim();
-                        if (clean) tags.add(clean);
+                        t.split('#').map(p => p.trim().replace(/,\s*$/, '').trim()).filter(p => p.length > 0).forEach(p => tags.add(p));
                     });
                 });
                 return [...tags].sort((a, b) => a.localeCompare(b, 'he'));
@@ -1027,7 +1026,7 @@
                     const fileName = uploadFile.name;
                     const timestamp = Date.now();
                     const baseFileName = `${timestamp}_${fileName}`;
-                    const topics = uploadTopics.split(',').map(t => t.trim()).filter(t => t.length > 0);
+                    const topics = uploadTopics.split(/[,#]/).map(t => t.trim()).filter(t => t.length > 0).map(t => '#' + t);
 
                     const subtitle = uploadSubtitle.trim();
 
@@ -1831,8 +1830,7 @@
                 const tags = new Set();
                 newsletters.forEach(n => {
                     (n.topics || []).forEach(t => {
-                        const clean = t.replace(/^#/, '').trim();
-                        if (clean) tags.add(clean);
+                        t.split('#').map(p => p.trim().replace(/,\s*$/, '').trim()).filter(p => p.length > 0).forEach(p => tags.add(p));
                     });
                 });
                 return [...tags].sort((a, b) => a.localeCompare(b, 'he'));
@@ -2216,10 +2214,10 @@
                 newsletters.forEach(n => {
                     const topics = n.topics || [];
                     topics.forEach(topic => {
-                        const clean = topic.replace(/^#/, '').trim();
-                        if (!clean) return;
-                        if (!index[clean]) index[clean] = [];
-                        index[clean].push(n.number);
+                        topic.split('#').map(p => p.trim().replace(/,\s*$/, '').trim()).filter(p => p.length > 0).forEach(clean => {
+                            if (!index[clean]) index[clean] = [];
+                            if (!index[clean].includes(n.number)) index[clean].push(n.number);
+                        });
                     });
                 });
                 // מיון מספרי העלונים בכל נושא
@@ -2670,12 +2668,12 @@
                                             ) : (
                                                 <div className="flex flex-wrap gap-2">
                                                     {(selectedNewsletter.files?.[selectedFileIndex]?.topics || []).length > 0 ? (
-                                                        selectedNewsletter.files[selectedFileIndex].topics.map((topic, idx) => (
+                                                        (selectedNewsletter.files[selectedFileIndex].topics || []).flatMap(t => t.split('#').map(p => p.trim().replace(/,\s*$/, '').trim()).filter(p => p.length > 0)).filter((v, i, a) => a.indexOf(v) === i).map((topic, idx) => (
                                                             <span
                                                                 key={idx}
                                                                 className="px-3 py-1.5 bg-white text-stone-700 text-sm rounded-full border border-stone-200 shadow-sm"
                                                             >
-                                                                {topic}
+                                                                #{topic}
                                                             </span>
                                                         ))
                                                     ) : (

@@ -2,3 +2,4 @@ node_modules/
 migration/keys/
 *.log
 .vercel/
+*-firebase-adminsdk-*.json
