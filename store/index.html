@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בית מדרש לשמה | חנות ספרים</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+
+    <!-- עיצוב ופונטים -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Bona+Nova+SC:wght@700&family=Frank+Ruhl+Libre:wght@300;400;500;700;900&display=swap"
+        rel="stylesheet">
+
+    <!-- ספריות React ו-Firebase -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.263.1",
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js",
+        "firebase/storage": "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js",
+        "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"
+      }
+    }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Frank Ruhl Libre', serif;
+            background-color: #FBF9F4;
+            color: #2C1810;
+        }
+
+        .gold-text {
+            background: linear-gradient(to bottom, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0px 2px 2px rgba(0, 0, 0, 0.15);
+        }
+
+        .price-gold {
+            background: linear-gradient(to bottom, #e9cf86, #C8A24B, #a07e2c);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .title-font {
+            font-family: 'Bona Nova SC', serif;
+        }
+
+        .animate-fade {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .cart-slide {
+            animation: cartSlide 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        @keyframes cartSlide {
+            from { transform: translateX(40px); opacity: 0.4; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .loader-ring {
+            display: inline-block;
+            position: relative;
+            width: 80px;
+            height: 80px;
+        }
+
+        .loader-ring div {
+            box-sizing: border-box;
+            display: block;
+            position: absolute;
+            width: 64px;
+            height: 64px;
+            margin: 8px;
+            border: 8px solid #2C1810;
+            border-radius: 50%;
+            animation: loader-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+            border-color: #2C1810 transparent transparent transparent;
+        }
+
+        .loader-ring div:nth-child(1) {
+            animation-delay: -0.45s;
+        }
+
+        .loader-ring div:nth-child(2) {
+            animation-delay: -0.3s;
+        }
+
+        .loader-ring div:nth-child(3) {
+            animation-delay: -0.15s;
+        }
+
+        @keyframes loader-ring {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .drag-over {
+            border: 2px dashed #2C1810;
+            transform: scale(1.05);
+            background-color: #eaddcf;
+        }
+
+        .file-drag-active {
+            background-color: #fff8e1 !important;
+            border-color: #2C1810 !important;
+            transform: scale(1.02);
+        }
+
+        .cart-badge {
+            animation: cartBounce 0.4s ease;
+        }
+
+        @keyframes cartBounce {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.15);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module" data-presets="react">
+        import React, { useState, useEffect } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { ChevronRight, ChevronLeft, Scroll, FileText, BookOpenCheck, Check, Globe, Lock, Plus, Trash2, Save, X, Edit3, BookOpen, ChevronDown, UploadCloud, GripVertical, Image as ImageIcon, FileUp, Loader2, MapPin, Package, Download, UserCog, ShieldCheck, LogOut, KeyRound, Crown, ShoppingCart, Users, User } from 'lucide-react';
+        import { initializeApp } from "firebase/app";
+        import { getFirestore, collection, doc, setDoc, updateDoc, addDoc, deleteDoc, onSnapshot, writeBatch, query, orderBy, serverTimestamp, getDoc } from "firebase/firestore";
+        import { getStorage, ref, uploadBytes, getDownloadURL, listAll, deleteObject } from "firebase/storage";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence, browserSessionPersistence } from "firebase/auth";
+
+        const firebaseConfig = {
+            // ⚠️ חשוב: הרץ את migrate-to-harav.html לפני העלייה לפרודקשן!
+            // לאחר ההגירה — כל הנתונים (ספרים, הזמנות, הגדרות, Storage) יהיו בפרויקט harav-tabady.
+            apiKey: "AIzaSyC9dUKsuyJgt3DD1TORbfOzFKdsIOGJ65s",
+            authDomain: "harav-tabady.firebaseapp.com",
+            projectId: "harav-tabady",
+            storageBucket: "harav-tabady.firebasestorage.app",
+            messagingSenderId: "102830776454",
+            appId: "1:102830776454:web:5ebc97830d5e86a1313107"
+        };
+
+        const NEWSLETTER_SITE_URL = "../index.html";
+        const DEFAULT_NOTIFICATIONS = { managerEmail: "", orderWebhookUrl: "", web3formsKey: "" };
+
+        const DEFAULT_RABBI = {
+            title: "הרב בנימין טבדי שליט\"א",
+            subtitle: "ראש בית מדרש 'לשמה'",
+            description: "הרב בנימין טבדי, העומד בראש בית המדרש 'לשמה', ידוע בשיעוריו המעמיקים ובגישתו הייחודית המשלבת למדנות קלאסית עם בהירות מחשבתית יוצאת דופן.\nספרו החדש הוא פרי של שנים של הרבצת תורה והדרכת תלמידים.",
+            imageUrl: "https://firebasestorage.googleapis.com/v0/b/harav-tabady.firebasestorage.app/o/tabady_pic.jpg?alt=media"
+        };
+
+        const DEFAULT_LOCATIONS = [
+            "בני ברק: 0556681710 (הרב נוימן)", "רמת גן: 0523115598 (הרב עמיחי)", "גבעתיים: 0508807781 (הרב רותם)",
+            "תל אביב: 0508807781 (הרב רותם)", "יפו: 0537544056 (בנימין)", "חולון: 0537544049 (גבי)",
+            "בת ים: 0537544049 (גבי)", "פתח תקוה: 0526299182 (יעקב)", "גבעת שמואל: 0524434955 (נהוראי)",
+            "אלעד: 0545887930 (אמיר)", "לוד: 0537544056 (בנימין)", "רעננה: 0537544056 (בנימין)",
+            "רמת השרון: 0537544056 (בנימין)", "ירושלים, קרית משה: 0528384964 (יהונתן)", "ירושלים, קטמון: 0522349099 (בהירה)",
+            'ירושלים העתיקה ("הרובע"): 0587577100 (אילה)', "בית אל: 0559720698 (רבקה)", "חשמונאים: 0522349099 (בהירה)",
+            "שעלבים: 054422479 (אביעד)", "יד בנימין: 0537544056 (בנימין)", "אלון שבות: 0546601895 (הרב בניה)",
+            "ברוכין: 0537544056 (בנימין)", "רבבה: 0543181713 (פלג)", "קרני שומרון: 052-698-3897 (מוטי)",
+            "יצהר: 0585642619 (רעיה)", "חוות יאיר 0542492280 (אביעד)", "עלי: 0587577100 (אילה)", "ירוחם: 0528490288 (ישי)"
+        ];
+
+        let db, auth, storage;
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            storage = getStorage(app);
+            auth = getAuth(app);
+        } catch (e) { console.error("Firebase init error:", e); }
+
+        function App() {
+            const [books, setBooks] = useState([]);
+            const [currentBookIndex, setCurrentBookIndex] = useState(0);
+            const [user, setUser] = useState(null);
+            const [userRole, setUserRole] = useState(null);
+            const [isStaffMode, setIsStaffMode] = useState(false);
+
+            const [isEditing, setIsEditing] = useState(false);
+            const [isNewBookMode, setIsNewBookMode] = useState(false);
+            const [editFormData, setEditFormData] = useState(null);
+            const [showLogin, setShowLogin] = useState(false);
+            const [rememberMe, setRememberMe] = useState(false);
+
+            const [isLoading, setIsLoading] = useState(true);
+            const [uploadingFile, setUploadingFile] = useState(null);
+            const [operationStatus, setOperationStatus] = useState(null);
+
+            const [pickupLocations, setPickupLocations] = useState([]);
+            const [showLocationsModal, setShowLocationsModal] = useState(false);
+            const [newLocationInput, setNewLocationInput] = useState("");
+
+            const [teamList, setTeamList] = useState({ admins: [], secretaries: [] });
+            const [showTeamModal, setShowTeamModal] = useState(false);
+            const [newTeamEmail, setNewTeamEmail] = useState("");
+            const [newTeamRole, setNewTeamRole] = useState("secretary");
+
+            const [showOrdersModal, setShowOrdersModal] = useState(false);
+            const [orders, setOrders] = useState([]);
+            const [ordersLoading, setOrdersLoading] = useState(true);
+            const [editingOrderId, setEditingOrderId] = useState(null);
+            const [editOrderData, setEditOrderData] = useState({});
+            const DEFAULT_BIT_URL = 'https://www.bitpay.co.il/app/me/F2DC5A6B-A704-0679-391A-774B7D5C126FBA38';
+            const DEFAULT_PAYBOX_URL = 'https://links.payboxapp.com/4o515zMts0b';
+            const [paymentLinks, setPaymentLinks] = useState({ bitUrl: DEFAULT_BIT_URL, payboxUrl: DEFAULT_PAYBOX_URL, paymentPhone: '', whatsappUrl: '' });
+            const [editingPaymentLink, setEditingPaymentLink] = useState(null);
+            const [paymentLinkInput, setPaymentLinkInput] = useState('');
+            const [notifications, setNotifications] = useState(DEFAULT_NOTIFICATIONS);
+            const [editingNotif, setEditingNotif] = useState(null);
+            const [notifInput, setNotifInput] = useState('');
+
+            const [rabbiProfile, setRabbiProfile] = useState(null);
+            const [showRabbiModal, setShowRabbiModal] = useState(false);
+            const [rabbiFormData, setRabbiFormData] = useState(null);
+            const [uploadingRabbiImage, setUploadingRabbiImage] = useState(false);
+
+            const [formStatus, setFormStatus] = useState('idle');
+            const [fullName, setFullName] = useState("");
+            const [phone, setPhone] = useState("");
+            const [pickupLocation, setPickupLocation] = useState('');
+            const [shippingAddress, setShippingAddress] = useState('');
+            const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+            const [slideIndex, setSlideIndex] = useState(0);
+            const [showCart, setShowCart] = useState(false);
+            const orderFormRef = React.useRef(null);
+
+            const [draggedItemIndex, setDraggedItemIndex] = useState(null);
+            const [dragOverIndex, setDragOverIndex] = useState(null);
+            const [fileDragActive, setFileDragActive] = useState(null);
+
+            // סל קניות - מערך של {bookId, title, price}
+            const [cart, setCart] = useState([]);
+
+            const SHIPPING_COST = 30;
+            const parsePrice = (p) => Number(String(p || '').replace(/[^0-9.]/g, '')) || 0;
+            const cartBooksTotal = cart.reduce((sum, item) => sum + parsePrice(item.price) * (item.qty || 1), 0);
+            const cartShipping = pickupLocation.includes('דואר') ? SHIPPING_COST : 0;
+            const cartTotal = cartBooksTotal + cartShipping;
+            const cartCount = cart.reduce((sum, item) => sum + (item.qty || 1), 0);
+
+            // Subscriptions
+            useEffect(() => {
+                const unsubscribe = onSnapshot(collection(db, "books"), (snapshot) => {
+                    const booksData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    booksData.sort((a, b) => (a.order || 0) - (b.order || 0));
+                    setBooks(booksData);
+                    setIsLoading(false);
+                }, () => setIsLoading(false));
+                return () => unsubscribe();
+            }, []);
+
+            useEffect(() => {
+                const unsubscribeLocations = onSnapshot(doc(db, "settings", "pickupLocations"), (docSnapshot) => {
+                    if (docSnapshot.exists()) setPickupLocations(docSnapshot.data().list || []);
+                    else setPickupLocations(DEFAULT_LOCATIONS);
+                }, () => setPickupLocations(DEFAULT_LOCATIONS));
+                return () => unsubscribeLocations();
+            }, []);
+
+            useEffect(() => {
+                const unsub = onSnapshot(doc(db, "settings", "rabbiProfile"), (docSnapshot) => {
+                    if (docSnapshot.exists()) setRabbiProfile(docSnapshot.data());
+                    else setRabbiProfile(null);
+                }, () => setRabbiProfile(null));
+                return () => unsub();
+            }, []);
+
+            useEffect(() => {
+                if (!user) return;
+                const unsubscribeTeam = onSnapshot(doc(db, "settings", "team"), (docSnapshot) => {
+                    if (docSnapshot.exists()) setTeamList(docSnapshot.data());
+                }, () => { });
+                return () => unsubscribeTeam();
+            }, [user]);
+
+            useEffect(() => {
+                if (isStaffMode && showOrdersModal) {
+                    setOrdersLoading(true);
+                    const q = query(collection(db, "orders"), orderBy("timestamp", "desc"));
+                    const unsubscribeOrders = onSnapshot(q, (snapshot) => {
+                        const ordersData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                        setOrders(ordersData);
+                        setOrdersLoading(false);
+                    }, (err) => { console.error("Orders access error:", err); setOrdersLoading(false); });
+                    return () => unsubscribeOrders();
+                }
+            }, [isStaffMode, showOrdersModal]);
+
+            useEffect(() => {
+                const unsub = onSnapshot(doc(db, "settings", "paymentLinks"), (docSnapshot) => {
+                    if (docSnapshot.exists()) {
+                        const data = docSnapshot.data();
+                        setPaymentLinks({ bitUrl: data.bitUrl || DEFAULT_BIT_URL, payboxUrl: data.payboxUrl || DEFAULT_PAYBOX_URL, paymentPhone: data.paymentPhone || '', whatsappUrl: data.whatsappUrl || '' });
+                    }
+                }, () => {});
+                return () => unsub();
+            }, []);
+
+            useEffect(() => {
+                const unsub = onSnapshot(doc(db, "settings", "notifications"), (docSnapshot) => {
+                    if (docSnapshot.exists()) {
+                        const data = docSnapshot.data();
+                        setNotifications({ managerEmail: data.managerEmail || '', orderWebhookUrl: data.orderWebhookUrl || '', web3formsKey: data.web3formsKey || '' });
+                    }
+                }, () => {});
+                return () => unsub();
+            }, []);
+
+            useEffect(() => {
+                const unsubAuth = onAuthStateChanged(auth, async (u) => {
+                    setUser(u);
+                    if (u) {
+                        try {
+                            const email = u.email.toLowerCase();
+                            const snap = await getDoc(doc(db, "settings", "team"));
+                            let role = null;
+                            if (snap.exists()) {
+                                const data = snap.data();
+                                const admins = (data.admins || []).map(e => e.toLowerCase());
+                                const secretaries = (data.secretaries || []).map(e => e.toLowerCase());
+                                if (admins.includes(email)) role = 'admin';
+                                else if (secretaries.includes(email)) role = 'secretary';
+                            } else { role = 'admin'; }
+                            if (role) {
+                                setUserRole(role);
+                                setIsStaffMode(true);
+                                if (role === 'secretary') setShowOrdersModal(true);
+                            } else {
+                                alert("אין לך הרשאות גישה למערכת זו.");
+                                await signOut(auth);
+                                setUserRole(null);
+                                setIsStaffMode(false);
+                            }
+                        } catch (err) {
+                            console.error("Role check failed:", err);
+                            setIsStaffMode(false);
+                        }
+                    } else {
+                        setIsStaffMode(false);
+                        setUserRole(null);
+                        setShowOrdersModal(false);
+                        setIsEditing(false);
+                    }
+                });
+                return () => unsubAuth();
+            }, []);
+
+            useEffect(() => {
+                if (currentBookIndex >= books.length && books.length > 0) setCurrentBookIndex(0);
+            }, [books.length]);
+
+            const currentBook = books.length > 0 ? books[currentBookIndex] : null;
+
+            // איפוס השקופית במעבר בין ספרים — מונע אינדקס חורג מטווח
+            useEffect(() => { setSlideIndex(0); }, [currentBookIndex, currentBook?.id]);
+
+            // Preload לכל תמונות הספרים — מעבר מיידי מה-cache בלי הבזקת תמונה ישנה
+            useEffect(() => {
+                books.forEach(b => (b.images || []).forEach(src => { if (src) { const im = new Image(); im.decoding = 'async'; im.src = src; } }));
+            }, [books]);
+
+            // סל - הוספה והסרה
+            const addToCart = (book) => {
+                setCart(prev => {
+                    const existing = prev.find(item => item.bookId === book.id);
+                    if (existing) return prev.map(item => item.bookId === book.id ? { ...item, qty: (item.qty || 1) + 1 } : item);
+                    return [...prev, { bookId: book.id, title: book.title, price: parsePrice(book.price), qty: 1 }];
+                });
+            };
+
+            const removeFromCart = (index) => {
+                setCart(prev => {
+                    const item = prev[index];
+                    if (item && (item.qty || 1) > 1) return prev.map((it, i) => i === index ? { ...it, qty: it.qty - 1 } : it);
+                    return prev.filter((_, i) => i !== index);
+                });
+            };
+
+            const clearCart = () => {
+                setCart([]);
+            };
+
+            const handleLogout = async () => {
+                try {
+                    await signOut(auth);
+                    setUser(null);
+                    setIsStaffMode(false);
+                    setUserRole(null);
+                    setShowLogin(false);
+                    setShowOrdersModal(false);
+                } catch (error) { console.error("Logout Error:", error); }
+            };
+
+            const addTeamMember = async () => {
+                if (!newTeamEmail.trim()) return;
+                const email = newTeamEmail.trim().toLowerCase();
+                let updatedTeam = { ...teamList };
+                if (!updatedTeam.admins) updatedTeam.admins = [];
+                if (!updatedTeam.secretaries) updatedTeam.secretaries = [];
+                updatedTeam.admins = updatedTeam.admins.filter(e => e.toLowerCase() !== email);
+                updatedTeam.secretaries = updatedTeam.secretaries.filter(e => e.toLowerCase() !== email);
+                if (newTeamRole === 'admin') updatedTeam.admins.push(email);
+                else updatedTeam.secretaries.push(email);
+                try {
+                    await setDoc(doc(db, "settings", "team"), updatedTeam);
+                    setNewTeamEmail("");
+                    alert("איש צוות עודכן בהצלחה!");
+                } catch (e) { alert("שגיאה: " + e.message); }
+            };
+
+            const removeTeamMember = async (email) => {
+                if (!confirm("להסיר גישה?")) return;
+                let updatedTeam = { ...teamList };
+                updatedTeam.admins = (updatedTeam.admins || []).filter(e => e !== email);
+                updatedTeam.secretaries = (updatedTeam.secretaries || []).filter(e => e !== email);
+                try { await setDoc(doc(db, "settings", "team"), updatedTeam); } catch (e) { alert("שגיאה: " + e.message); }
+            };
+
+            const openRabbiEdit = () => { setRabbiFormData({ title: rabbiProfile?.title ?? '', subtitle: rabbiProfile?.subtitle ?? '', description: rabbiProfile?.description ?? '', imageUrl: rabbiProfile?.imageUrl ?? '' }); setShowRabbiModal(true); };
+            const saveRabbiProfile = async () => { try { await setDoc(doc(db, "settings", "rabbiProfile"), rabbiFormData); setShowRabbiModal(false); alert("פרופיל הרב נשמר."); } catch (e) { alert("שגיאה: " + e.message); } };
+            const uploadRabbiImage = async (file) => { if (!file) return; if (file.size > 2 * 1024 * 1024) { alert("התמונה גדולה מדי (מקסימום 2MB)"); return; } setUploadingRabbiImage(true); try { const storageRef = ref(storage, "settings/rabbiProfile.jpg"); await uploadBytes(storageRef, file); const url = await getDownloadURL(storageRef); setRabbiFormData(prev => ({ ...prev, imageUrl: url })); } catch (err) { alert("שגיאה: " + err.message); } finally { setUploadingRabbiImage(false); } };
+
+            const savePaymentLink = async (field) => { try { const updated = { ...paymentLinks, [field]: paymentLinkInput }; await setDoc(doc(db, "settings", "paymentLinks"), updated); setEditingPaymentLink(null); setPaymentLinkInput(''); } catch (e) { alert("שגיאה: " + e.message); } };
+            const saveNotification = async (field) => { try { const updated = { ...notifications, [field]: notifInput }; await setDoc(doc(db, "settings", "notifications"), updated, { merge: true }); setEditingNotif(null); setNotifInput(''); } catch (e) { alert("שגיאה: " + e.message); } };
+
+            const startOrderEdit = (order) => { setEditingOrderId(order.id); setEditOrderData({ ...order }); };
+            const cancelOrderEdit = () => { setEditingOrderId(null); setEditOrderData({}); };
+            const saveOrderEdit = async (orderId) => { try { await updateDoc(doc(db, "orders", orderId), editOrderData); setEditingOrderId(null); } catch (e) { alert("שגיאה: " + e.message); } };
+            const deleteOrder = async (orderId) => { if (!confirm("למחוק?")) return; try { await deleteDoc(doc(db, "orders", orderId)); } catch (e) { alert("שגיאה: " + e.message); } };
+            const downloadOrdersCSV = () => {
+                const BOM = "\uFEFF";
+                const headers = ["תאריך", "שם מלא", "טלפון", "ספרים", "מסירה", "מחיר", "סטטוס", "הערות"];
+                const rows = orders.map(o => {
+                    const date = o.timestamp ? new Date(o.timestamp.seconds * 1000).toLocaleDateString("he-IL") : "-";
+                    const bookTitles = o.items ? o.items.map(i => (i.qty || 1) > 1 ? `${i.title} x${i.qty}` : i.title).join(" | ") : (o.bookTitle || "");
+                    return [date, `"${o.customerName || ''}"`, `"${o.customerPhone || ''}"`, `"${bookTitles}"`, `"${o.pickupLocation || ''}"`, o.price || "-", o.status || "חדש", `"${o.notes || ''}"`];
+                });
+                const csvContent = BOM + [headers, ...rows].map(e => e.join(",")).join("\n");
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(new Blob([csvContent], { type: "text/csv;charset=utf-8;" }));
+                link.download = "orders.csv";
+                link.click();
+            };
+
+            const addLocation = async () => { if (!newLocationInput.trim()) return; const updatedList = [...pickupLocations, newLocationInput.trim()]; setNewLocationInput(""); try { await setDoc(doc(db, "settings", "pickupLocations"), { list: updatedList }); } catch (e) { } };
+            const removeLocation = async (index) => { if (!confirm("למחוק?")) return; const updatedList = pickupLocations.filter((_, i) => i !== index); try { await setDoc(doc(db, "settings", "pickupLocations"), { list: updatedList }); } catch (e) { } };
+
+            const handleFileUpload = async (file, type) => {
+                if (!file) return;
+                if (!editFormData.id) { alert("נא למלא שדה 'מזהה באנגלית' בראש הטופס לפני העלאת קבצים!"); return; }
+                const fileSizeMB = file.size / (1024 * 1024);
+                if (type === 'image' && fileSizeMB > 2) { alert("התמונה גדולה מדי! המקסימום הוא 2MB."); return; }
+                if ((type === 'toc' || type === 'sample') && fileSizeMB > 10) { alert("קובץ ה-PDF גדול מדי! המקסימום הוא 10MB."); return; }
+                setUploadingFile(type);
+                try {
+                    const storagePath = `books/${editFormData.id}/${type === 'image' ? 'images' : 'pdfs'}/${Date.now()}_${file.name}`;
+                    const storageRef = ref(storage, storagePath);
+                    await uploadBytes(storageRef, file);
+                    const url = await getDownloadURL(storageRef);
+                    const newData = { ...editFormData };
+                    if (type === 'image') { if (!newData.images) newData.images = []; newData.images.push(url); }
+                    else if (type === 'toc') { if (!newData.downloads) newData.downloads = {}; newData.downloads.toc = url; }
+                    else if (type === 'sample') { if (!newData.downloads) newData.downloads = {}; newData.downloads.sample = url; }
+                    setEditFormData(newData);
+                } catch (error) { alert("שגיאה: " + error.message); }
+                finally { setUploadingFile(null); }
+            };
+
+            const handleFileDragEnter = (e, type) => { e.preventDefault(); e.stopPropagation(); setFileDragActive(type); };
+            const handleFileDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setFileDragActive(null); };
+            const handleFileDrop = (e, type) => { e.preventDefault(); e.stopPropagation(); setFileDragActive(null); if (e.dataTransfer.files[0]) handleFileUpload(e.dataTransfer.files[0], type); };
+            const removeImage = (index) => { const newData = { ...editFormData }; newData.images.splice(index, 1); setEditFormData(newData); };
+            const addContentCell = () => { const newData = { ...editFormData }; if (!newData.cells) newData.cells = []; newData.cells.push({ title: "", desc: "", icon: "brain" }); setEditFormData(newData); };
+            const removeContentCell = (index) => { const newData = { ...editFormData }; newData.cells.splice(index, 1); setEditFormData(newData); };
+            const deleteBook = async () => { if (!confirm("מחיקה סופית. להמשיך?")) return; if (!currentBook?.id) return; setOperationStatus("מוחק..."); try { const bookId = currentBook.id; try { const deleteFolder = async (path) => { const list = await listAll(ref(storage, path)); await Promise.all(list.items.map(item => deleteObject(item))); }; await deleteFolder(`books/${bookId}/images`); await deleteFolder(`books/${bookId}/pdfs`); } catch (e) { } await deleteDoc(doc(db, "books", bookId)); setOperationStatus(null); setCurrentBookIndex(0); } catch (err) { setOperationStatus(null); alert("שגיאה: " + err.message); } };
+
+            const handleDragStart = (e, index) => { setDraggedItemIndex(index); e.dataTransfer.effectAllowed = "move"; };
+            const handleDragEnter = (index) => { if (draggedItemIndex !== null) setDragOverIndex(index); };
+            const handleDragEnd = () => { setDraggedItemIndex(null); setDragOverIndex(null); };
+            const handleDrop = async (e, dropIndex) => { e.preventDefault(); setDragOverIndex(null); if (draggedItemIndex === null || draggedItemIndex === dropIndex) return; const newBooks = [...books]; const [draggedItem] = newBooks.splice(draggedItemIndex, 1); newBooks.splice(dropIndex, 0, draggedItem); const updatedBooks = newBooks.map((book, index) => ({ ...book, order: index })); setBooks(updatedBooks); if (currentBookIndex === draggedItemIndex) setCurrentBookIndex(dropIndex); else if (currentBookIndex === dropIndex) setCurrentBookIndex(draggedItemIndex); try { const batch = writeBatch(db); let hasUpdates = false; updatedBooks.forEach(book => { if (book.id) { batch.update(doc(db, "books", book.id), { order: book.order }); hasUpdates = true; } }); if (hasUpdates) await batch.commit(); } catch (err) { console.error(err); } };
+            const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                try {
+                    const persistenceType = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+                    await setPersistence(auth, persistenceType);
+                    await signInWithEmailAndPassword(auth, e.target.email.value, e.target.password.value);
+                    setShowLogin(false);
+                } catch (err) { alert("שגיאה: " + err.message); }
+            };
+
+            const saveEdit = async () => {
+                try {
+                    if (!editFormData.id || editFormData.id.trim() === "") { alert("חובה למלא מזהה באנגלית!"); return; }
+                    if (!/^[a-zA-Z0-9-_]+$/.test(editFormData.id)) { alert("שם באנגלית יכול להכיל רק אותיות אנגליות, מספרים ומקפים"); return; }
+                    await setDoc(doc(db, "books", editFormData.id), editFormData, { merge: true });
+                    setIsEditing(false);
+                    setIsNewBookMode(false);
+                } catch (err) { alert("שגיאה: " + err.message); }
+            };
+
+            const addNewBook = async () => {
+                const newBook = { id: "", title: "", order: books.length, subtitle: "", marketingTitle: "", marketingSubtitle: "", price: "", images: [], downloads: { toc: "", sample: "" }, cells: [{ title: "", desc: "", icon: "brain" }] };
+                setEditFormData(newBook);
+                setIsNewBookMode(true);
+                setIsEditing(true);
+            };
+
+            const handleFormSubmit = async (e) => {
+                e.preventDefault();
+                const itemsToOrder = cart;
+                if (itemsToOrder.length === 0) { alert('נא להוסיף ספרים לסל לפני שליחת הזמנה'); return; }
+                if (!pickupLocation) { alert('נא לבחור נקודת איסוף'); return; }
+                if (pickupLocation.includes('דואר') && shippingAddress.length < 5) { alert('נא להזין כתובת מלאה'); return; }
+                if (!pickupLocation.includes('חול') && !paymentConfirmed) { alert('נא לאשר תשלום'); return; }
+                setFormStatus('submitting');
+                try {
+                    const booksPrice = itemsToOrder.reduce((s, i) => s + parsePrice(i.price) * (i.qty || 1), 0);
+                    const shipping = pickupLocation.includes('דואר') ? SHIPPING_COST : 0;
+                    const totalPrice = booksPrice + shipping;
+                    const orderData = {
+                        items: itemsToOrder,
+                        bookId: itemsToOrder[0].bookId,
+                        bookTitle: itemsToOrder.map(i => (i.qty || 1) > 1 ? `${i.title} x${i.qty}` : i.title).join(' | '),
+                        price: totalPrice,
+                        shippingCost: shipping,
+                        customerName: fullName,
+                        customerPhone: phone,
+                        pickupLocation: pickupLocation.includes('דואר') ? `משלוח: ${shippingAddress}` : pickupLocation,
+                        timestamp: serverTimestamp(),
+                        paymentConfirmed: paymentConfirmed,
+                        status: 'חדש',
+                        notes: ''
+                    };
+                    const orderRef = await addDoc(collection(db, 'orders'), orderData);
+                    // התראת מייל למנהל (אם הוגדר webhook) — לא חוסם את ההזמנה
+                    try {
+                        if (notifications.orderWebhookUrl) {
+                            fetch(notifications.orderWebhookUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    managerEmail: notifications.managerEmail || '',
+                                    orderId: orderRef.id,
+                                    customerName: fullName,
+                                    customerPhone: phone,
+                                    books: orderData.bookTitle,
+                                    items: itemsToOrder,
+                                    total: totalPrice,
+                                    shipping: shipping,
+                                    pickupLocation: orderData.pickupLocation,
+                                    paymentConfirmed: paymentConfirmed,
+                                    date: new Date().toISOString()
+                                })
+                            }).catch(() => {});
+                        }
+                    } catch (e) {}
+                    // התראת מייל דרך Web3Forms (אם הוגדר Access Key) — בנוסף, ולא חוסם את ההזמנה
+                    try {
+                        if (notifications.web3formsKey) {
+                            const itemsCount = itemsToOrder.reduce((s, i) => s + (i.qty || 1), 0);
+                            const itemLines = itemsToOrder.map(i => '• ' + i.title + ((i.qty || 1) > 1 ? ' (x' + i.qty + ')' : '') + ' — ' + (parsePrice(i.price) * (i.qty || 1)) + ' ש"ח').join('\n');
+                            const isShipping = pickupLocation.includes('דואר');
+                            const isAbroad = pickupLocation.includes('חול');
+                            const deliveryType = isShipping ? 'משלוח בדואר' : isAbroad ? 'משלוח לחו"ל' : 'איסוף עצמי';
+                            const orderSummary =
+                                '🛒 הזמנה חדשה התקבלה באתר בית מדרש לשמה\n' +
+                                '═══════════════════════════════\n\n' +
+                                '👤 פרטי המזמין\n' +
+                                '   שם: ' + fullName + '\n' +
+                                '   טלפון: ' + phone + '\n\n' +
+                                '📚 הספרים שהוזמנו (' + itemsCount + ')\n' +
+                                itemLines + '\n\n' +
+                                '🚚 אופן מסירה: ' + deliveryType + '\n' +
+                                '   ' + orderData.pickupLocation + '\n' +
+                                (isShipping ? '   דמי משלוח: ' + shipping + ' ש"ח\n' : '') + '\n' +
+                                '💰 סה"כ לתשלום: ' + totalPrice + ' ש"ח\n' +
+                                '   תשלום אושר ע"י הלקוח: ' + (paymentConfirmed ? '✅ כן' : '❌ לא') + '\n\n' +
+                                '🧾 מספר הזמנה: ' + orderRef.id + '\n' +
+                                '📅 תאריך: ' + new Date().toLocaleString('he-IL');
+                            const payload = {
+                                access_key: notifications.web3formsKey,
+                                subject: '🛒 הזמנה חדשה – ' + orderData.bookTitle + ' – ' + fullName,
+                                from_name: 'הזמנות | בית מדרש לשמה',
+                                'שם הלקוח': fullName,
+                                'טלפון': phone,
+                                'ספרים': orderData.bookTitle,
+                                'כמות פריטים': itemsCount,
+                                'אופן מסירה': deliveryType,
+                                'כתובת / נקודת איסוף': orderData.pickupLocation,
+                                'דמי משלוח': (isShipping ? shipping + ' ש"ח' : 'ללא'),
+                                'סה"כ לתשלום': totalPrice + ' ש"ח',
+                                'תשלום אושר': (paymentConfirmed ? 'כן' : 'לא'),
+                                'מספר הזמנה': orderRef.id,
+                                'תאריך': new Date().toLocaleString('he-IL'),
+                                message: orderSummary
+                            };
+                            if (notifications.managerEmail) payload.email = notifications.managerEmail; // reply-to
+                            fetch('https://api.web3forms.com/submit', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                                body: JSON.stringify(payload)
+                            }).then(r => r.json()).then(res => {
+                                if (!res.success) console.error('Web3Forms נכשל:', res);
+                            }).catch(e => console.error('שגיאת שליחת מייל (Web3Forms):', e));
+                        }
+                    } catch (e) { console.error('שגיאת Web3Forms:', e); }
+                    setFormStatus('success');
+                    clearCart();
+                    setTimeout(() => { setFullName(""); setPhone(""); setPickupLocation(""); setShippingAddress(""); setPaymentConfirmed(false); setFormStatus('idle'); }, 3000);
+                } catch (err) { alert("שגיאה: " + err.message); setFormStatus('idle'); }
+            };
+
+            const escapeHtml = (str) => {
+                if (!str) return "";
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            };
+            const formatText = (text) => {
+                if (!text) return "";
+                const safe = escapeHtml(text);
+                let formatted = safe.replace(/\n/g, '<br/>');
+                formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<span class="text-[#b38728] font-black">$1</span>');
+                return formatted;
+            };
+
+            if (isLoading) return (<div className="min-h-screen flex flex-col items-center justify-center bg-[#fdfbf7]"><div className="loader-ring"><div></div><div></div><div></div><div></div></div><h2 className="text-[#2C1810] font-bold mt-4 text-xl animate-pulse">טוען נתונים...</h2></div>);
+
+            if (showLocationsModal && userRole === 'admin') return (
+                <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-[#fdfbf7] w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-xl shadow-2xl border-4 border-[#2C1810] p-6">
+                        <div className="flex justify-between items-center mb-4 border-b border-[#b38728] pb-2">
+                            <h2 className="text-2xl font-bold text-[#2C1810]">ניהול נקודות איסוף</h2>
+                            <button onClick={() => setShowLocationsModal(false)}><X /></button>
+                        </div>
+                        <div className="space-y-2 mb-4">
+                            {pickupLocations.map((loc, idx) => (
+                                <div key={idx} className="flex justify-between items-center p-2 bg-white rounded border border-gray-200">
+                                    <span className="text-sm">{loc}</span>
+                                    <button onClick={() => removeLocation(idx)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex gap-2 mt-4 pt-4 border-t border-[#b38728]">
+                            <input className="flex-1 p-2 border border-[#b38728] rounded text-sm" placeholder="מיקום חדש..." value={newLocationInput} onChange={(e) => setNewLocationInput(e.target.value)} />
+                            <button onClick={addLocation} className="bg-[#2C1810] text-white px-4 py-2 rounded text-sm font-bold">הוסף</button>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            if (showTeamModal && userRole === 'admin') return (
+                <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-[#fdfbf7] w-full max-w-lg rounded-xl shadow-2xl border-4 border-[#2C1810] p-6">
+                        <div className="flex justify-between items-center mb-4 border-b border-[#b38728] pb-2">
+                            <h2 className="text-2xl font-bold text-[#2C1810]">ניהול צוות</h2>
+                            <button onClick={() => setShowTeamModal(false)}><X /></button>
+                        </div>
+                        <div className="mb-4">
+                            <h3 className="font-bold text-sm mb-2 text-blue-800 flex items-center gap-1"><ShieldCheck size={14} /> מנהלים</h3>
+                            <div className="space-y-1 mb-4">
+                                {teamList.admins && teamList.admins.map((email, idx) => (
+                                    <div key={idx} className="flex justify-between items-center p-2 bg-blue-50 rounded border border-blue-100">
+                                        <span className="text-sm">{email}</span>
+                                        {teamList.admins.length > 1 && <button onClick={() => removeTeamMember(email)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>}
+                                    </div>
+                                ))}
+                            </div>
+                            <h3 className="font-bold text-sm mb-2 text-purple-800 flex items-center gap-1"><UserCog size={14} /> מזכירות</h3>
+                            <div className="space-y-1">
+                                {teamList.secretaries && teamList.secretaries.map((email, idx) => (
+                                    <div key={idx} className="flex justify-between items-center p-2 bg-purple-50 rounded border border-purple-100">
+                                        <span className="text-sm">{email}</span>
+                                        <button onClick={() => removeTeamMember(email)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="pt-4 border-t border-[#b38728]">
+                            <label className="text-xs font-bold text-[#2C1810] mb-1 block">הוספת איש צוות חדש:</label>
+                            <div className="flex gap-2 mb-2">
+                                <input className="flex-1 p-2 border border-[#b38728] rounded text-sm" placeholder="אימייל..." value={newTeamEmail} onChange={(e) => setNewTeamEmail(e.target.value)} />
+                                <select className="p-2 border border-[#b38728] rounded text-sm bg-white" value={newTeamRole} onChange={(e) => setNewTeamRole(e.target.value)}>
+                                    <option value="secretary">מזכירה</option>
+                                    <option value="admin">מנהל</option>
+                                </select>
+                            </div>
+                            <button onClick={addTeamMember} className="w-full bg-[#2C1810] text-white px-4 py-2 rounded text-sm font-bold hover:bg-[#5d4037]">הוסף לרשימה</button>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            if (showRabbiModal && rabbiFormData && userRole === 'admin') return (
+                <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" dir="rtl">
+                    <div className="bg-[#fdfbf7] w-full max-w-lg rounded-xl shadow-2xl border-4 border-[#2C1810] p-6">
+                        <div className="flex justify-between items-center mb-4 border-b border-[#b38728] pb-2">
+                            <h2 className="text-2xl font-bold text-[#2C1810]">עריכת פרופיל הרב</h2>
+                            <button onClick={() => setShowRabbiModal(false)}><X /></button>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-[#b38728] mb-1">שם הרב</label>
+                                <input className="w-full p-2 border border-[#b38728] rounded placeholder:text-gray-400 placeholder:font-normal" value={rabbiFormData.title || ''} onChange={e => setRabbiFormData({ ...rabbiFormData, title: e.target.value })} placeholder="למשל: הרב פלוני שליט&quot;א" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-[#b38728] mb-1">כותרת משנה / שם בית המדרש</label>
+                                <input className="w-full p-2 border border-[#b38728] rounded placeholder:text-gray-400 placeholder:font-normal" value={rabbiFormData.subtitle || ''} onChange={e => setRabbiFormData({ ...rabbiFormData, subtitle: e.target.value })} placeholder="למשל: ראש בית מדרש &#39;שם הבימ&quot;ד&#39;" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-[#b38728] mb-1">תיאור על הרב</label>
+                                <textarea className="w-full p-2 border border-[#b38728] rounded min-h-[120px] placeholder:text-gray-400 placeholder:font-normal" value={rabbiFormData.description || ''} onChange={e => setRabbiFormData({ ...rabbiFormData, description: e.target.value })} placeholder="כתוב כאן כמה משפטים על הרב, שיעוריו וגישתו. שורה חדשה – Enter." />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-[#b38728] mb-1">תמונת הרב</label>
+                                {rabbiFormData.imageUrl ? <div className="mb-2"><img src={rabbiFormData.imageUrl} alt="" className="w-24 h-24 rounded-full object-cover border-2 border-[#b38728]" /></div> : <p className="text-gray-400 text-xs mb-2">עדיין לא הועלתה תמונה</p>}
+                                <label className="flex items-center justify-center gap-2 bg-[#2C1810] text-white px-4 py-2 rounded text-sm font-bold cursor-pointer hover:bg-[#5d4037]">
+                                    {uploadingRabbiImage ? <Loader2 className="animate-spin" size={18} /> : <UploadCloud size={18} />}
+                                    {uploadingRabbiImage ? 'מעלה...' : (rabbiFormData.imageUrl ? 'החלף תמונה' : 'העלה תמונה')}
+                                    <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadRabbiImage(f); e.target.value = ''; }} />
+                                </label>
+                            </div>
+                        </div>
+                        <div className="mt-6 flex justify-end gap-2 border-t border-[#eaddcf] pt-4">
+                            <button onClick={() => setShowRabbiModal(false)} className="px-4 py-2 text-gray-500">ביטול</button>
+                            <button onClick={saveRabbiProfile} className="px-6 py-2 bg-[#2C1810] text-white rounded font-bold hover:bg-[#5d4037]">שמור</button>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            if (showOrdersModal) return (
+                <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col rounded-xl shadow-2xl">
+                        <div className="p-4 bg-[#2C1810] text-white shadow-md">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-xl font-bold flex items-center gap-2"><Package /> הזמנות ({orders.length})</h2>
+                                <div className="flex gap-2 flex-wrap items-center">
+                                    <button onClick={() => { setEditingPaymentLink('bitUrl'); setPaymentLinkInput(paymentLinks.bitUrl); }} className="px-3 py-1 rounded text-sm flex items-center gap-1" style={{background:'#00cbf1'}}>קישור Bit</button>
+                                    <button onClick={() => { setEditingPaymentLink('payboxUrl'); setPaymentLinkInput(paymentLinks.payboxUrl); }} className="px-3 py-1 rounded text-sm flex items-center gap-1" style={{background:'#ffc400',color:'#333'}}>קישור PayBox</button>
+                                    <button onClick={() => { setEditingPaymentLink('paymentPhone'); setPaymentLinkInput(paymentLinks.paymentPhone); }} className="bg-purple-600 hover:bg-purple-500 px-3 py-1 rounded text-sm flex items-center gap-1">טלפון לתשלום</button>
+                                    <button onClick={() => { setEditingPaymentLink('whatsappUrl'); setPaymentLinkInput(paymentLinks.whatsappUrl); }} className="px-3 py-1 rounded text-sm flex items-center gap-1" style={{background:'#25D366'}}>WhatsApp</button>
+                                    <button onClick={() => { setEditingNotif('managerEmail'); setNotifInput(notifications.managerEmail); }} className="bg-rose-600 hover:bg-rose-500 px-3 py-1 rounded text-sm flex items-center gap-1">מייל מנהל</button>
+                                    <button onClick={() => { setEditingNotif('web3formsKey'); setNotifInput(notifications.web3formsKey); }} className="bg-teal-600 hover:bg-teal-500 px-3 py-1 rounded text-sm flex items-center gap-1">🔑 מפתח שליחת מייל</button>
+                                    <button onClick={downloadOrdersCSV} className="bg-green-600 hover:bg-green-500 px-3 py-1 rounded text-sm flex items-center gap-1"><Download size={16} /> CSV</button>
+                                    <button onClick={() => setShowOrdersModal(false)}><X /></button>
+                                </div>
+                            </div>
+                            {editingPaymentLink && (
+                                <div className="mt-3 flex items-center gap-2 bg-white/10 p-2 rounded">
+                                    <span className="text-sm font-bold shrink-0">{editingPaymentLink === 'bitUrl' ? 'קישור Bit:' : editingPaymentLink === 'payboxUrl' ? 'קישור PayBox:' : editingPaymentLink === 'whatsappUrl' ? 'קישור WhatsApp:' : 'טלפון לתשלום:'}</span>
+                                    <input className="flex-1 p-1.5 rounded text-sm text-black" dir="ltr" placeholder={editingPaymentLink === 'paymentPhone' ? '050-0000000' : 'https://...'} value={paymentLinkInput} onChange={e => setPaymentLinkInput(e.target.value)} />
+                                    <button onClick={() => savePaymentLink(editingPaymentLink)} className="bg-green-600 hover:bg-green-500 px-3 py-1.5 rounded text-sm font-bold"><Save size={14} /></button>
+                                    <button onClick={() => { setEditingPaymentLink(null); setPaymentLinkInput(''); }} className="bg-gray-600 hover:bg-gray-500 px-2 py-1.5 rounded"><X size={14} /></button>
+                                </div>
+                            )}
+                            {editingNotif && (
+                                <div className="mt-3 flex items-center gap-2 bg-white/10 p-2 rounded">
+                                    <span className="text-sm font-bold shrink-0">{editingNotif === 'managerEmail' ? 'מייל מנהל לקבלת הזמנות:' : editingNotif === 'web3formsKey' ? 'Web3Forms Access Key:' : 'כתובת Webhook לשליחת מייל:'}</span>
+                                    <input className="flex-1 p-1.5 rounded text-sm text-black" dir="ltr" placeholder={editingNotif === 'managerEmail' ? 'manager@example.com' : editingNotif === 'web3formsKey' ? 'הדבק כאן את ה-Access Key מ-web3forms.com' : 'https://script.google.com/.../exec'} value={notifInput} onChange={e => setNotifInput(e.target.value)} />
+                                    <button onClick={() => saveNotification(editingNotif)} className="bg-green-600 hover:bg-green-500 px-3 py-1.5 rounded text-sm font-bold"><Save size={14} /></button>
+                                    <button onClick={() => { setEditingNotif(null); setNotifInput(''); }} className="bg-gray-600 hover:bg-gray-500 px-2 py-1.5 rounded"><X size={14} /></button>
+                                </div>
+                            )}
+                            {editingNotif === 'web3formsKey' && (
+                                <div className="mt-1 text-xs text-white/70 px-2">קבל מפתח חינמי ב-web3forms.com (הזן את מייל המנהל באתר, והמפתח יישלח אליו). ההזמנות יישלחו לאותו מייל.</div>
+                            )}
+                        </div>
+                        <div className="overflow-auto flex-1 p-4 bg-gray-50">
+                        {ordersLoading ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-gray-400"><Loader2 className="animate-spin mb-3" size={40} /><span className="text-sm">טוען הזמנות...</span></div>
+                        ) : (
+                            <table className="w-full text-sm text-right border-collapse bg-white shadow-sm rounded-lg overflow-hidden">
+                                <thead className="bg-gray-100 text-gray-700 font-bold sticky top-0 z-10">
+                                    <tr>
+                                        <th className="p-3 border-b">פעולות</th>
+                                        <th className="p-3 border-b">תאריך</th>
+                                        <th className="p-3 border-b">סטטוס</th>
+                                        <th className="p-3 border-b">שם</th>
+                                        <th className="p-3 border-b">טלפון</th>
+                                        <th className="p-3 border-b">ספרים</th>
+                                        <th className="p-3 border-b">מסירה</th>
+                                        <th className="p-3 border-b">שולם</th>
+                                        <th className="p-3 border-b">הערות</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {orders.map((order) => (
+                                        <tr key={order.id} className="hover:bg-gray-50 border-b last:border-0">
+                                            <td className="p-3 flex gap-1">
+                                                {editingOrderId === order.id ? (
+                                                    <><button onClick={() => saveOrderEdit(order.id)} className="bg-green-100 text-green-700 p-1 rounded"><Save size={16} /></button><button onClick={cancelOrderEdit} className="bg-gray-100 text-gray-700 p-1 rounded"><X size={16} /></button></>
+                                                ) : (
+                                                    <><button onClick={() => startOrderEdit(order)} className="bg-blue-50 text-blue-600 p-1 rounded hover:bg-blue-100"><Edit3 size={16} /></button><button onClick={() => deleteOrder(order.id)} className="bg-red-50 text-red-600 p-1 rounded hover:bg-red-100"><Trash2 size={16} /></button></>
+                                                )}
+                                            </td>
+                                            <td className="p-3 text-xs text-gray-500">{order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleDateString("he-IL") : "-"}</td>
+                                            <td className="p-3">
+                                                {editingOrderId === order.id ? (
+                                                    <select className="p-1 border rounded text-xs" value={editOrderData.status} onChange={e => setEditOrderData({ ...editOrderData, status: e.target.value })}>
+                                                        <option value="חדש">חדש</option><option value="בטיפול">בטיפול</option><option value="נשלח">נשלח</option><option value="נמסר">נמסר</option><option value="בוטל">בוטל</option>
+                                                    </select>
+                                                ) : <span className={`px-2 py-1 rounded text-xs ${order.status === 'חדש' ? 'bg-yellow-100 text-yellow-800' : order.status === 'נמסר' ? 'bg-green-100 text-green-800' : 'bg-gray-100'}`}>{order.status || 'חדש'}</span>}
+                                            </td>
+                                            <td className="p-3">{editingOrderId === order.id ? <input className="border rounded p-1 w-24" value={editOrderData.customerName} onChange={e => setEditOrderData({ ...editOrderData, customerName: e.target.value })} /> : order.customerName}</td>
+                                            <td className="p-3">{editingOrderId === order.id ? <input className="border rounded p-1 w-24" value={editOrderData.customerPhone} onChange={e => setEditOrderData({ ...editOrderData, customerPhone: e.target.value })} /> : <a href={`tel:${order.customerPhone}`} className="text-blue-600 underline">{order.customerPhone}</a>}</td>
+                                            <td className="p-3 text-xs max-w-[200px]">{order.items ? order.items.map(i => i.title).join(' | ') : order.bookTitle}</td>
+                                            <td className="p-3 text-xs max-w-[150px] truncate" title={order.pickupLocation}>{editingOrderId === order.id ? <input className="border rounded p-1 w-full" value={editOrderData.pickupLocation} onChange={e => setEditOrderData({ ...editOrderData, pickupLocation: e.target.value })} /> : order.pickupLocation}</td>
+                                            <td className="p-3 text-center">{editingOrderId === order.id ? <input type="checkbox" checked={editOrderData.paymentConfirmed} onChange={e => setEditOrderData({ ...editOrderData, paymentConfirmed: e.target.checked })} /> : (order.paymentConfirmed ? <span className="text-green-600">✔</span> : <span className="text-red-500">✘</span>)}</td>
+                                            <td className="p-3 text-xs">{editingOrderId === order.id ? <input className="border rounded p-1 w-full" placeholder="הערות..." value={editOrderData.notes || ''} onChange={e => setEditOrderData({ ...editOrderData, notes: e.target.value })} /> : (order.notes || '-')}</td>
+                                        </tr>
+                                    ))}
+                                    {orders.length === 0 && <tr><td colSpan="9" className="p-8 text-center text-gray-500">אין הזמנות עדיין</td></tr>}
+                                </tbody>
+                            </table>
+                        )}
+                        </div>
+                    </div>
+                </div>
+            );
+
+            if (isEditing) return (
+                <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" dir="rtl">
+                    <div className="bg-[#fdfbf7] w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl shadow-2xl border-4 border-[#2C1810] p-6 no-scrollbar">
+                        <div className="flex justify-between items-center mb-4 border-b border-[#b38728] pb-2">
+                            <h2 className="text-2xl font-bold text-[#2C1810]">עריכת ספר</h2>
+                            <button onClick={() => setIsEditing(false)}><X /></button>
+                        </div>
+                        <div className="mb-6 bg-yellow-50 p-4 rounded border border-yellow-200">
+                            <label className="text-sm font-bold text-[#b38728] flex items-center gap-1"><KeyRound size={16} /> מזהה באנגלית</label>
+                            <input className={`w-full p-2 border border-[#b38728] rounded font-mono text-left mt-1 ${!isNewBookMode ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-white'}`} placeholder="e.g. harry-potter-1" value={editFormData.id} onChange={e => setEditFormData({ ...editFormData, id: e.target.value })} disabled={!isNewBookMode} />
+                        </div>
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-xs font-bold text-[#b38728]">שם הספר</label><input className="w-full p-2 border border-[#b38728] rounded" placeholder="הכנס שם ספר..." value={editFormData.title} onChange={e => setEditFormData({ ...editFormData, title: e.target.value })} /></div>
+                                <div><label className="text-xs font-bold text-[#b38728]">כותרת משנה</label><input className="w-full p-2 border border-[#b38728] rounded" placeholder="הכנס כותרת משנה..." value={editFormData.subtitle} onChange={e => setEditFormData({ ...editFormData, subtitle: e.target.value })} /></div>
+                                <div><label className="text-xs font-bold text-[#b38728]">טקסט שיווקי עליון</label><input className="w-full p-2 border border-[#b38728] rounded" placeholder="למשל: להיות תלמיד חכם..." value={editFormData.marketingTitle} onChange={e => setEditFormData({ ...editFormData, marketingTitle: e.target.value })} /></div>
+                                <div><label className="text-xs font-bold text-[#b38728]">טקסט שיווקי תחתון</label><input className="w-full p-2 border border-[#b38728] rounded" placeholder="למשל: ב-50 יום!" value={editFormData.marketingSubtitle} onChange={e => setEditFormData({ ...editFormData, marketingSubtitle: e.target.value })} /></div>
+                                <div><label className="text-xs font-bold text-[#b38728]">מחיר</label><input className="w-full p-2 border border-[#b38728] rounded" placeholder="50" value={editFormData.price} onChange={e => setEditFormData({ ...editFormData, price: e.target.value })} /></div>
+                            </div>
+                            <div className="bg-white p-4 rounded border border-gray-200">
+                                <h3 className="font-bold text-[#2C1810] mb-3 flex items-center gap-2"><ImageIcon size={18} /> תמונות</h3>
+                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-4 mb-3">
+                                    {editFormData.images && editFormData.images.map((img, idx) => (
+                                        <div key={idx} className="relative group aspect-[4/5]"><img src={img} className="w-full h-full object-cover rounded border border-gray-300" /><button onClick={() => removeImage(idx)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-80 hover:opacity-100"><X size={12} /></button></div>
+                                    ))}
+                                    <label className={`flex flex-col items-center justify-center border-2 border-dashed border-[#b38728] rounded cursor-pointer hover:bg-orange-50 aspect-[4/5] transition-transform ${fileDragActive === 'image' ? 'file-drag-active' : ''}`} onDragEnter={e => handleFileDragEnter(e, 'image')} onDragLeave={handleFileDragLeave} onDragOver={e => e.preventDefault()} onDrop={e => handleFileDrop(e, 'image')}>{uploadingFile === 'image' ? <Loader2 className="animate-spin text-[#2C1810]" /> : <Plus className="text-[#2C1810]" />}<span className="text-xs text-[#2C1810] mt-1 font-bold">גרור לכאן</span><input type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e.target.files[0], 'image')} /></label>
+                                </div>
+                            </div>
+                            <div className="bg-white p-4 rounded border border-gray-200">
+                                <h3 className="font-bold text-[#2C1810] mb-3 flex items-center gap-2"><FileUp size={18} /> קבצי PDF</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="border p-3 rounded flex flex-col gap-2">
+                                        <span className="font-bold text-sm">תוכן עניינים</span>
+                                        {editFormData.downloads?.toc ? <div className="text-green-600 text-xs flex items-center gap-1"><Check size={12} /> קיים</div> : <div className="text-gray-400 text-xs">אין</div>}
+                                        <label className={`bg-[#2C1810] text-white text-xs py-4 px-3 rounded text-center cursor-pointer hover:bg-[#5d4037] flex flex-col items-center justify-center gap-2 border-2 border-transparent transition-all ${fileDragActive === 'toc' ? 'border-dashed border-white scale-105' : ''}`} onDragEnter={e => handleFileDragEnter(e, 'toc')} onDragLeave={handleFileDragLeave} onDragOver={e => e.preventDefault()} onDrop={e => handleFileDrop(e, 'toc')}>{uploadingFile === 'toc' ? <Loader2 className="animate-spin" size={14} /> : <UploadCloud size={14} />}<span>{editFormData.downloads?.toc ? 'החלף' : 'העלה'}</span><input type="file" accept="application/pdf" className="hidden" onChange={e => handleFileUpload(e.target.files[0], 'toc')} /></label>
+                                    </div>
+                                    <div className="border p-3 rounded flex flex-col gap-2">
+                                        <span className="font-bold text-sm">דוגמא</span>
+                                        {editFormData.downloads?.sample ? <div className="text-green-600 text-xs flex items-center gap-1"><Check size={12} /> קיים</div> : <div className="text-gray-400 text-xs">אין</div>}
+                                        <label className={`bg-[#b38728] text-white text-xs py-4 px-3 rounded text-center cursor-pointer hover:bg-[#c69c45] flex flex-col items-center justify-center gap-2 border-2 border-transparent transition-all ${fileDragActive === 'sample' ? 'border-dashed border-white scale-105' : ''}`} onDragEnter={e => handleFileDragEnter(e, 'sample')} onDragLeave={handleFileDragLeave} onDragOver={e => e.preventDefault()} onDrop={e => handleFileDrop(e, 'sample')}>{uploadingFile === 'sample' ? <Loader2 className="animate-spin" size={14} /> : <UploadCloud size={14} />}<span>{editFormData.downloads?.sample ? 'החלף' : 'העלה'}</span><input type="file" accept="application/pdf" className="hidden" onChange={e => handleFileUpload(e.target.files[0], 'sample')} /></label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-orange-50 p-3 rounded border border-orange-200">
+                                <div className="flex justify-between items-center mb-2 border-b border-orange-300 pb-2">
+                                    <h4 className="font-bold text-sm">תאי תוכן</h4>
+                                    <button onClick={addContentCell} className="text-xs bg-[#2C1810] text-white px-2 py-1 rounded flex items-center gap-1 hover:bg-[#5d4037]"><Plus size={14} /> הוסף תא</button>
+                                </div>
+                                {editFormData.cells && editFormData.cells.length > 0 ? editFormData.cells.map((c, i) => (
+                                    <div key={i} className="mb-3 p-2 bg-white/50 rounded border border-orange-100 relative group"><button onClick={() => removeContentCell(i)} className="absolute top-1 left-1 text-red-500 hover:text-red-700 bg-white rounded-full p-1 shadow-sm"><Trash2 size={14} /></button><div className="mb-1 pl-6"><input className="w-full p-1 text-sm border border-gray-300 rounded mb-1 font-bold" placeholder="כותרת התא" value={c.title} onChange={e => { const nc = [...editFormData.cells]; nc[i].title = e.target.value; setEditFormData({ ...editFormData, cells: nc }) }} /></div><div><textarea className="w-full p-1 text-sm border border-gray-300 rounded" rows="2" placeholder="תוכן התא" value={c.desc} onChange={e => { const nc = [...editFormData.cells]; nc[i].desc = e.target.value; setEditFormData({ ...editFormData, cells: nc }) }} /></div></div>
+                                )) : <div className="text-center text-xs text-gray-500 py-2">אין תאים</div>}
+                            </div>
+                        </div>
+                        <div className="mt-6 flex justify-end gap-2 sticky bottom-0 bg-[#fdfbf7] py-2 border-t">
+                            <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-gray-500">ביטול</button>
+                            <button onClick={saveEdit} className="px-6 py-2 bg-[#2C1810] text-white rounded font-bold hover:bg-[#5d4037]">שמור</button>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const displayItems = cart;
+            const booksSubtotal = displayItems.reduce((s, i) => s + parsePrice(i.price) * (i.qty || 1), 0);
+            const shippingCost = pickupLocation.includes('דואר') ? SHIPPING_COST : 0;
+            const displayTotal = booksSubtotal + shippingCost;
+            // cartTotal משתמש באותן לוגיקה כמו displayTotal
+
+            return (
+                <div className="min-h-screen flex flex-col items-center pb-10">
+                    {isStaffMode && (
+                        <div className="w-full bg-[#2C1810] text-white p-3 px-6 sticky top-0 z-50 flex justify-between items-center shadow-lg border-b-2 border-[#b38728]">
+                            <div className="flex gap-3 items-center">
+                                <span className="font-bold flex items-center gap-2 text-[#ffecb3]">
+                                    {userRole === 'admin' ? <Lock size={16} /> : <UserCog size={16} />}
+                                    {userRole === 'admin' ? 'מנהל' : 'מזכירות'}
+                                </span>
+                                {operationStatus && <span className="text-xs bg-yellow-600 px-2 rounded animate-pulse">{operationStatus}</span>}
+                                <div className="h-6 w-[1px] bg-white/30 mx-2"></div>
+                                {userRole === 'admin' && (
+                                    <>
+                                        <button onClick={addNewBook} className="bg-green-600 px-2 py-1 rounded hover:bg-green-500 transition-colors flex gap-1 items-center text-sm"><Plus size={16} /> חדש</button>
+                                        <button onClick={() => setShowLocationsModal(true)} className="bg-blue-600 px-2 py-1 rounded hover:bg-blue-500 transition-colors flex gap-1 items-center text-sm ml-2"><MapPin size={16} /></button>
+                                        <button onClick={() => setShowTeamModal(true)} className="bg-purple-600 px-2 py-1 rounded hover:bg-purple-500 transition-colors flex gap-1 items-center text-sm ml-2" title="ניהול צוות"><Users size={16} /></button>
+                                        <button onClick={openRabbiEdit} className="bg-amber-600 px-2 py-1 rounded hover:bg-amber-500 transition-colors flex gap-1 items-center text-sm ml-2" title="פרופיל הרב"><User size={16} /> פרופיל הרב</button>
+                                    </>
+                                )}
+                                <button onClick={() => setShowOrdersModal(true)} className="bg-orange-600 px-2 py-1 rounded hover:bg-orange-500 transition-colors flex gap-1 items-center text-sm ml-2"><Package size={16} /> הזמנות</button>
+                            </div>
+                            <div className="flex gap-2">
+                                {userRole === 'admin' && (
+                                    <>
+                                        <button onClick={() => { if (books.length > 0) { setEditFormData({ ...currentBook }); setIsNewBookMode(false); setIsEditing(true); } else alert("אין ספר לעריכה"); }} className="bg-blue-600 hover:bg-blue-500 px-4 py-1 rounded text-sm font-bold flex gap-2 items-center"><Edit3 size={16} /> ערוך</button>
+                                        {books.length > 0 && <button onClick={deleteBook} className="bg-red-600 hover:bg-red-500 px-3 py-1 rounded text-sm"><Trash2 size={16} /></button>}
+                                    </>
+                                )}
+                                <button onClick={handleLogout} className="text-sm underline opacity-80 hover:opacity-100 flex items-center gap-1 mr-2"><LogOut size={14} /> יציאה</button>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="w-full bg-white/95 backdrop-blur border-b border-[#eaddcf] sticky top-0 z-50">
+                        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <span className="w-8 h-8 rounded-lg bg-[#241A14] text-[#E9D9B8] flex items-center justify-center title-font font-bold text-lg">ל</span>
+                                <span className="title-font text-lg font-bold text-[#241A14]">לשמה · חנות הספרים</span>
+                            </div>
+                            <div className="flex items-center gap-2.5">
+                                <a href={NEWSLETTER_SITE_URL} className="text-sm font-bold text-[#A9852F] border border-[#E3D4B2] px-3 py-2 rounded-lg hover:bg-[#FBF3E0] transition-colors no-underline flex items-center gap-1">↔ אתר העלונים</a>
+                                <button onClick={() => setShowCart(true)} className="relative flex items-center gap-2 text-sm font-bold text-white bg-[#241A14] hover:bg-[#3d2a1f] px-4 py-2 rounded-lg transition-colors">
+                                    <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                                    <span className="hidden sm:inline">הסל</span>
+                                    {cartCount > 0 && <span className="absolute -top-2 -right-2 min-w-[20px] h-5 px-1 flex items-center justify-center bg-[#A9852F] text-white text-xs font-bold rounded-full border-2 border-[#FBF9F4]">{cartCount}</span>}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ===== Cart Drawer (full checkout) ===== */}
+                    {showCart && (
+                        <div className="fixed inset-0 z-[60]" dir="rtl">
+                            <div className="absolute inset-0 bg-black/40 animate-fade" onClick={() => setShowCart(false)}></div>
+                            <div className="absolute top-0 right-0 h-full w-full max-w-[440px] bg-[#FBF9F4] shadow-2xl flex flex-col cart-slide">
+                                {/* Header */}
+                                <div className="flex items-center justify-between px-5 h-16 border-b border-[#eaddcf] bg-white shrink-0">
+                                    <div className="flex items-center gap-2 title-font text-lg font-bold text-[#241A14]">
+                                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                                        הסל שלי
+                                    </div>
+                                    <button onClick={() => setShowCart(false)} className="p-2 -mr-2 text-[#5d4037] hover:text-[#241A14] rounded-lg hover:bg-[#f3e5ce]"><X size={22} /></button>
+                                </div>
+                                {/* Scrollable body */}
+                                <div className="flex-1 overflow-y-auto no-scrollbar">
+                                    {formStatus === 'success' ? (
+                                        <div className="flex flex-col items-center justify-center h-full text-center px-8 py-16">
+                                            <div className="inline-block p-5 bg-green-100 rounded-full mb-5 text-green-600"><Check size={48} /></div>
+                                            <h3 className="text-2xl font-bold text-green-800 mb-2">ההזמנה התקבלה!</h3>
+                                            <p className="text-gray-500 mb-6">תודה רבה, פרטי ההזמנה נשמרו במערכת.</p>
+                                            <button onClick={() => { setShowCart(false); }} className="px-6 py-3 bg-[#241A14] text-white font-bold rounded-xl">סגור</button>
+                                        </div>
+                                    ) : displayItems.length > 0 ? (
+                                        <>
+                                            {/* ── Cart Items ── */}
+                                            <div className="px-5 pt-5 pb-4">
+                                                <div className="text-xs font-bold text-[#9a8066] mb-3 tracking-wide">פריטים בסל</div>
+                                                <div className="space-y-3">
+                                                    {displayItems.map((item, idx) => (
+                                                        <div key={idx} className="flex items-center gap-3 bg-white border border-[#eaddcf] rounded-xl p-3">
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="font-bold text-[#2C1810] title-font truncate text-sm">{item.title}</div>
+                                                                <div className="text-sm price-gold font-black">{parsePrice(item.price) * (item.qty || 1)} ש"ח</div>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 bg-[#f3e5ce] rounded-lg p-1 shrink-0">
+                                                                <button onClick={() => removeFromCart(idx)} className="w-7 h-7 flex items-center justify-center rounded-md bg-white text-[#5d4037] hover:bg-[#eaddcf] font-bold text-lg leading-none">−</button>
+                                                                <span className="w-6 text-center font-bold text-[#2C1810] text-sm">{item.qty || 1}</span>
+                                                                <button onClick={() => addToCart({ id: item.bookId, title: item.title, price: item.price })} className="w-7 h-7 flex items-center justify-center rounded-md bg-white text-[#5d4037] hover:bg-[#eaddcf] font-bold text-lg leading-none">+</button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {shippingCost > 0 && (
+                                                    <div className="flex justify-between items-center text-sm mt-3 px-1 text-[#5d4037]">
+                                                        <span>🚚 משלוח בדואר</span>
+                                                        <span className="font-bold">+{shippingCost} ש"ח</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-between items-center mt-3 pt-3 border-t border-[#eaddcf]">
+                                                    <span className="font-bold text-[#2C1810]">סה"כ:</span>
+                                                    <span className="price-gold text-2xl font-black title-font">{displayTotal} ש"ח</span>
+                                                </div>
+                                                <button onClick={clearCart} className="mt-2 text-xs text-gray-400 hover:text-red-500 flex items-center gap-1"><Trash2 size={12} /> רוקן סל</button>
+                                            </div>
+                                            {/* ── Divider ── */}
+                                            <div className="h-3 bg-[#f3e5ce] border-y border-[#eaddcf]"></div>
+                                            {/* ── Checkout Form ── */}
+                                            <div className="px-5 py-5">
+                                                <div className="text-xs font-bold text-[#9a8066] mb-4 tracking-wide">פרטי הזמנה</div>
+                                                <form onSubmit={(e) => { handleFormSubmit(e); }} className="space-y-4">
+                                                    <div>
+                                                        <label className="block text-sm font-bold text-[#5d4037] mb-1">שם מלא</label>
+                                                        <input type="text" required className="w-full px-4 py-2.5 bg-white border border-[#d7ccc8] rounded-lg focus:outline-none focus:border-[#b38728] text-sm" placeholder="ישראל ישראלי" value={fullName} onChange={e => setFullName(e.target.value)} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-bold text-[#5d4037] mb-1">מספר טלפון</label>
+                                                        <input type="tel" required className="w-full px-4 py-2.5 bg-white border border-[#d7ccc8] rounded-lg focus:outline-none focus:border-[#b38728] text-sm" placeholder="050-0000000" value={phone} onChange={e => setPhone(e.target.value)} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-bold text-[#5d4037] mb-1">נקודת איסוף / משלוח (חובה)</label>
+                                                        <div className="relative">
+                                                            <select required className="w-full px-4 py-2.5 bg-white border border-[#d7ccc8] rounded-lg focus:outline-none focus:border-[#b38728] appearance-none text-[#2C1810] text-sm" value={pickupLocation} onChange={e => setPickupLocation(e.target.value)}>
+                                                                <option value="" disabled>בחר אזור...</option>
+                                                                {pickupLocations.map((loc, i) => <option key={i} value={loc}>{loc}</option>)}
+                                                                <option disabled>──────────</option>
+                                                                <option value="שליחה בדואר (תוספת 30 שח)">שליחה בדואר (תוספת 30 ₪)</option>
+                                                                <option value="משלוח לחול">משלוח לחו"ל</option>
+                                                            </select>
+                                                            <ChevronDown className="absolute left-3 top-3 text-[#2C1810] pointer-events-none" size={18} />
+                                                        </div>
+                                                    </div>
+                                                    {pickupLocation.includes('דואר') && (
+                                                        <div>
+                                                            <label className="block text-xs font-bold text-[#b38728] mb-1">כתובת למשלוח</label>
+                                                            <input type="text" className="w-full px-4 py-2.5 bg-white border-2 border-[#b38728] rounded-lg text-sm" placeholder="רחוב, מספר, עיר" value={shippingAddress} onChange={e => setShippingAddress(e.target.value)} />
+                                                        </div>
+                                                    )}
+                                                    {pickupLocation.includes('חול') && (
+                                                        <div className="p-3 bg-[#fff8e1] border border-[#b38728] text-[#2C1810] rounded-lg text-center font-bold text-sm">
+                                                            <Globe className="inline-block w-4 h-4 ml-1" /> המזכירה תיצור קשר למשלוח לחו"ל.
+                                                        </div>
+                                                    )}
+                                                    {!pickupLocation.includes('חול') && (
+                                                        <div className="space-y-3 pt-1">
+                                                            <p className="text-center text-xs text-[#5d4037]">שלב 1 — בצעו תשלום ({displayTotal} ש"ח):</p>
+                                                            <div className="grid grid-cols-2 gap-4">
+                                                                <a href={displayTotal > 0 ? `${paymentLinks.payboxUrl}${paymentLinks.payboxUrl.includes('?') ? '&' : '?'}amount=${Math.round(displayTotal)}` : '#'} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center no-underline">
+                                                                    <div className="bg-[#fff8e1] rounded-xl border-2 border-[#ffc400] p-3 cursor-pointer hover:scale-105 hover:shadow-lg transition-all w-full flex items-center justify-center">
+                                                                        <img src="https://firebasestorage.googleapis.com/v0/b/harav-tabady.firebasestorage.app/o/paybox.png?alt=media" onError={e => e.target.src='https://firebasestorage.googleapis.com/v0/b/sfarim-tabady.firebasestorage.app/o/paybox.png?alt=media'} className="w-12 h-12 object-contain" alt="PayBox" />
+                                                                    </div>
+                                                                </a>
+                                                                <a href={displayTotal > 0 ? `${paymentLinks.bitUrl}${paymentLinks.bitUrl.includes('?') ? '&' : '?'}amount=${Math.round(displayTotal)}` : '#'} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center no-underline">
+                                                                    <div className="bg-[#e0f7fa] rounded-xl border-2 border-[#00cbf1] p-3 cursor-pointer hover:scale-105 hover:shadow-lg transition-all w-full flex items-center justify-center">
+                                                                        <img src="https://firebasestorage.googleapis.com/v0/b/harav-tabady.firebasestorage.app/o/bit.png?alt=media" onError={e => e.target.src='https://firebasestorage.googleapis.com/v0/b/sfarim-tabady.firebasestorage.app/o/bit.png?alt=media'} className="w-12 h-12 object-contain" alt="Bit" />
+                                                                    </div>
+                                                                </a>
+                                                            </div>
+                                                            {paymentLinks.paymentPhone && (
+                                                                <p className="text-center text-sm text-[#5d4037]">
+                                                                    העברה עצמאית / יצירת קשר: <a href={`tel:${paymentLinks.paymentPhone}`} className="font-bold text-[#2C1810] underline" dir="ltr">{paymentLinks.paymentPhone}</a>
+                                                                </p>
+                                                            )}
+                                                            {paymentLinks.whatsappUrl && (
+                                                                <div className="flex justify-center">
+                                                                    <a href={paymentLinks.whatsappUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 no-underline">
+                                                                        <svg viewBox="0 0 24 24" fill="#25D366" className="w-8 h-8"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                                                        <span className="text-sm font-bold text-[#25D366]">WhatsApp לתיאום</span>
+                                                                    </a>
+                                                                </div>
+                                                            )}
+                                                            <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-[#eaddcf]">
+                                                                <input type="checkbox" id="paychk2" className="mt-1 w-4 h-4 accent-[#b38728]" checked={paymentConfirmed} onChange={e => setPaymentConfirmed(e.target.checked)} />
+                                                                <label htmlFor="paychk2" className="text-sm font-bold text-[#2C1810] cursor-pointer">שלב 2 — אני מאשר/ת ששילמתי</label>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    <button type="submit" disabled={formStatus === 'submitting' || displayItems.length === 0} className="w-full py-3.5 bg-[#241A14] text-white font-bold rounded-xl hover:bg-[#3d2a1f] shadow-md disabled:opacity-50 transition-colors">
+                                                        {formStatus === 'submitting' ? 'שולח...' : 'שלב 3 — אישור ההזמנה'}
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="flex-1 flex flex-col items-center justify-center text-center px-8 py-16">
+                                            <div className="w-16 h-16 rounded-full bg-[#f3e5ce] flex items-center justify-center mb-4 text-[#b38728]">
+                                                <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                                            </div>
+                                            <div className="font-bold text-[#2C1810] mb-1">הסל ריק</div>
+                                            <p className="text-sm text-[#8d6e63] mb-5">הוסיפו ספרים לסל כדי להמשיך</p>
+                                            <button onClick={() => setShowCart(false)} className="px-5 py-2.5 border-2 border-[#A9852F] text-[#A9852F] font-bold rounded-lg hover:bg-[#A9852F] hover:text-white transition-all">לעיון בספרים</button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                                        <div className="w-full max-w-4xl px-6 pt-4 text-right text-sm font-bold opacity-60">בס"ד</div>
+
+                    <nav className="w-full max-w-5xl px-6 mt-6 mb-4">
+                        <div className="flex items-stretch gap-3 overflow-x-auto no-scrollbar pb-1">
+                            {books.length > 0 ? books.map((book, idx) => (
+                                <button key={book.id || idx} onClick={() => { setCurrentBookIndex(idx); setSlideIndex(0); }} draggable={userRole === 'admin'} onDragStart={(e) => userRole === 'admin' && handleDragStart(e, idx)} onDragEnter={() => userRole === 'admin' && handleDragEnter(idx)} onDragEnd={handleDragEnd} onDragOver={(e) => userRole === 'admin' && e.preventDefault()} onDrop={(e) => userRole === 'admin' && handleDrop(e, idx)} className={`group relative shrink-0 flex items-center gap-3 px-3 py-2 rounded-2xl border transition-all ${currentBookIndex === idx ? 'bg-white border-[#A9852F] shadow-md ring-1 ring-[#A9852F]/30' : 'bg-white/60 border-[#eaddcf] hover:border-[#d9c9a3] hover:bg-white'} ${userRole === 'admin' ? 'cursor-move' : 'cursor-pointer'} ${draggedItemIndex === idx ? 'opacity-50' : ''} ${dragOverIndex === idx ? 'drag-over' : ''}`}>
+                                    {userRole === 'admin' && <GripVertical size={12} className="opacity-30 shrink-0" />}
+                                    <span className={`w-9 h-12 rounded-md overflow-hidden shrink-0 border ${currentBookIndex === idx ? 'border-[#A9852F]' : 'border-[#eaddcf]'} bg-[#f3e5ce] flex items-center justify-center`}>
+                                        {book.images && book.images[0] ? <img src={book.images[0]} className="w-full h-full object-cover" /> : <BookOpen size={16} className="text-[#b38728]" />}
+                                    </span>
+                                    <span className="text-right">
+                                        <span className={`block whitespace-nowrap font-bold leading-tight title-font text-[15px] ${currentBookIndex === idx ? 'text-[#2C1810]' : 'text-[#6b5d4f]'}`}>{book.title}</span>
+                                        {book.price && <span className={`block text-xs ${currentBookIndex === idx ? 'text-[#A9852F]' : 'text-[#a99a82]'}`}>{book.price} ₪</span>}
+                                    </span>
+                                    {currentBookIndex === idx && <span className="absolute -bottom-px left-4 right-4 h-[3px] rounded-full bg-[#A9852F]"></span>}
+                                </button>
+                            )) : <div className="text-gray-500 italic p-2">אין ספרים להצגה</div>}
+                        </div>
+                    </nav>
+
+                    {currentBook ? (
+                        <>
+                            <header className="w-full max-w-5xl px-6 pt-2 pb-10">
+                                <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
+                                    <div className="text-center md:text-right order-2 md:order-1">
+                                        <div className="text-xs font-bold tracking-[3px] text-[#A9852F] mb-3">ספר חדש</div>
+                                        <h1 className="title-font text-6xl md:text-7xl font-bold leading-none text-[#2C1810] mb-3">{currentBook.title}</h1>
+                                        <h2 className="text-xl md:text-2xl text-[#5d4037] font-bold mb-4">{currentBook.subtitle}</h2>
+                                        {(currentBook.marketingTitle || currentBook.marketingSubtitle) && (
+                                            <p className="text-[#6b5d4f] text-lg leading-relaxed mb-6">{currentBook.marketingTitle}{currentBook.marketingTitle && currentBook.marketingSubtitle ? ' · ' : ''}<span className="font-black text-[#A9852F]">{currentBook.marketingSubtitle}</span></p>
+                                        )}
+                                        <div className="flex items-center justify-center md:justify-start gap-5 flex-wrap mb-5">
+                                            <span className="title-font price-gold text-5xl md:text-6xl font-bold leading-none">{currentBook.price} ש"ח</span>
+                                            <button onClick={() => { addToCart(currentBook); setShowCart(true); }} className="flex items-center gap-2 bg-[#241A14] hover:bg-[#3d2a1f] text-white px-7 py-3.5 rounded-xl font-bold shadow-lg transition-all hover:scale-[1.03]"><ShoppingCart size={20} /> הוסף לסל</button>
+                                        </div>
+                                        {(currentBook.downloads?.toc || currentBook.downloads?.sample) && (
+                                            <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                                                {currentBook.downloads?.toc && <a href={currentBook.downloads.toc} target="_blank" className="flex items-center gap-2 px-5 py-2.5 border-2 border-[#5d4037] text-[#5d4037] font-bold rounded-lg hover:bg-[#5d4037] hover:text-white transition-all no-underline text-sm"><FileText size={18} /> תוכן עניינים</a>}
+                                                {currentBook.downloads?.sample && <a href={currentBook.downloads.sample} target="_blank" className="flex items-center gap-2 px-5 py-2.5 border-2 border-[#A9852F] text-[#A9852F] font-bold rounded-lg hover:bg-[#A9852F] hover:text-white transition-all no-underline text-sm"><BookOpenCheck size={18} /> הורד דוגמא</a>}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="order-1 md:order-2 flex justify-center">
+                                        <div className="relative w-full max-w-[300px] group">
+                                            <div className="relative aspect-[4/5] w-full rounded-lg shadow-2xl overflow-hidden border-4 border-[#eaddcf] bg-white">
+                                                {currentBook.images && currentBook.images[slideIndex] ? <img key={(currentBook.id || currentBookIndex) + '-' + slideIndex} src={currentBook.images[slideIndex]} decoding="async" className="absolute inset-0 w-full h-full object-contain scale-110" /> : <div className="flex items-center justify-center h-full text-gray-400 text-center p-4">אין תמונה</div>}
+                                            </div>
+                                            {currentBook.images && currentBook.images.length > 1 && <><button onClick={() => setSlideIndex(prev => prev === 0 ? currentBook.images.length - 1 : prev - 1)} className="absolute -right-5 top-1/2 -translate-y-1/2 bg-[#241A14] text-[#f3e5ce] p-2 rounded-full shadow-lg border border-[#b38728] hover:bg-[#5d4037] hover:scale-110 transition-all z-10"><ChevronRight /></button><button onClick={() => setSlideIndex(prev => prev === currentBook.images.length - 1 ? 0 : prev + 1)} className="absolute -left-5 top-1/2 -translate-y-1/2 bg-[#241A14] text-[#f3e5ce] p-2 rounded-full shadow-lg border border-[#b38728] hover:bg-[#5d4037] hover:scale-110 transition-all z-10"><ChevronLeft /></button></>}
+                                        </div>
+                                    </div>
+                                </div>
+                            </header>
+                            <div className="w-full max-w-2xl mb-12 flex items-center justify-center text-[#b38728] opacity-80"><span className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#b38728] to-transparent"></span><Scroll className="mx-4 w-10 h-10 shrink-0" /><span className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#b38728] to-transparent"></span></div>
+                            <section className="w-full max-w-4xl px-6 pb-8 space-y-8">
+                                {currentBook.cells && currentBook.cells.map((cell, idx) => (
+                                    <div key={idx} className={`relative overflow-hidden p-8 rounded-xl text-center shadow-md border ${idx === 1 ? 'bg-white/90 border-2 border-[#b38728] transform md:scale-105 z-10 shadow-lg' : 'bg-white/70 border-[#eaddcf]'}`}>
+                                        <div className="absolute top-0 opacity-5 p-4 right-0">
+                                            {idx === 0 && <BookOpen size={96} strokeWidth={1} color="#2C1810" />}
+                                            {idx === 1 && <Scroll size={96} strokeWidth={1} color="#b38728" />}
+                                            {idx === 2 && <Crown size={96} strokeWidth={1} color="#2C1810" />}
+                                        </div>
+                                        <h2 className="text-3xl font-bold mb-4 text-[#2C1810] title-font">{cell.title}</h2>
+                                        <div className="text-xl leading-8 text-[#4e342e]" dangerouslySetInnerHTML={{ __html: formatText(cell.desc) }} />
+                                    </div>
+                                ))}
+                                {(() => {
+                                    const rabbi = rabbiProfile || DEFAULT_RABBI; return (
+                                        <div className="relative overflow-hidden p-8 rounded-xl shadow-md border border-[#eaddcf] bg-[#4e342e] text-[#f3e5ce] flex flex-col md:flex-row gap-6 items-center text-right">
+                                            <div className="flex-1 space-y-4">
+                                                <div>
+                                                    <h2 className="text-3xl font-bold text-[#b38728] title-font">{rabbi.title}</h2>
+                                                    <h3 className="text-lg opacity-80">{rabbi.subtitle}</h3>
+                                                </div>
+                                                <div className="text-lg leading-8 opacity-90" dangerouslySetInnerHTML={{ __html: formatText(rabbi.description || '') }} />
+                                            </div>
+                                            <div className="shrink-0">
+                                                <div className="w-48 h-48 rounded-full border-4 border-[#b38728] overflow-hidden shadow-xl bg-gray-300">
+                                                    <img src={rabbi.imageUrl || ''} alt={rabbi.title} className="w-full h-full object-cover" onError={(e) => e.target.src = 'https://via.placeholder.com/200x200?text=תמונה'} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                            </section>
+                        </>
+                    ) : (
+                        <div className="min-h-[50vh] flex flex-col items-center justify-center text-center p-4">
+                            <h2 className="text-2xl font-bold text-[#2C1810] mb-2">ברוכים הבאים לבית מדרש לשמה</h2>
+                            <p className="text-gray-600">כרגע לא מוצגים ספרים למכירה.</p>
+                            {isStaffMode && userRole === 'admin' && <div className="text-sm text-blue-600 mt-4 bg-blue-50 p-2 rounded">טיפ למנהל: לחץ על <b>+ חדש</b> למעלה כדי להוסיף ספר.</div>}
+                        </div>
+                    )}
+
+                    <footer className="w-full py-6 text-center text-[#8d6e63] text-sm bg-[#f3e5ce] mt-auto relative group">
+                        <p>© כל הזכויות שמורות לבית מדרש 'לשמה'</p>
+                        {!user && <button onClick={() => setShowLogin(true)} className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 text-xs">כניסת מנהל</button>}
+                    </footer>
+
+                    {showLogin && (
+                        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
+                            <form onSubmit={handleLogin} className="bg-white p-8 rounded-xl shadow-2xl w-80 text-center relative border-4 border-[#2C1810]">
+                                <button type="button" onClick={() => setShowLogin(false)} className="absolute top-2 right-2"><X size={20} /></button>
+                                <h3 className="font-bold mb-4 text-[#2C1810]">כניסת מנהל</h3>
+                                <input name="email" placeholder="אימייל" className="w-full p-2 border border-[#b38728] rounded mb-2" />
+                                <input name="password" type="password" placeholder="סיסמה" className="w-full p-2 border border-[#b38728] rounded mb-2" />
+                                <div className="flex items-center gap-2 mb-4 justify-start">
+                                    <input type="checkbox" id="rememberMe" className="w-4 h-4 accent-[#2C1810]" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
+                                    <label htmlFor="rememberMe" className="text-sm text-[#2C1810]">זכור אותי</label>
+                                </div>
+                                <button type="submit" className="w-full bg-[#2C1810] text-white py-2 rounded font-bold">התחבר</button>
+                            </form>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>

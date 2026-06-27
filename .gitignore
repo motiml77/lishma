@@ -1,0 +1,4 @@
+node_modules/
+migration/keys/
+*.log
+.vercel/

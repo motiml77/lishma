@@ -1,0 +1,13 @@
+{
+  "name": "tabady-firebase-migration",
+  "version": "1.0.0",
+  "description": "העברת כל הנתונים מ-sfarim-tabady אל harav-tabady (Firestore + Storage)",
+  "type": "commonjs",
+  "scripts": {
+    "migrate": "node migrate.js",
+    "dry": "node migrate.js --dry-run"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}

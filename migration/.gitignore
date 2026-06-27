@@ -1,0 +1,5 @@
+# מפתחות שירות סודיים — לעולם לא מעלים ל-Git
+keys/
+*.json
+!package.json
+node_modules/

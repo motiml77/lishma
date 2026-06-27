@@ -1,0 +1,2826 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בית מדרש לשמה - עלונים</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=Frank+Ruhl+Libre:wght@400;500;600;700;800;900&family=Assistant:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+    <!-- PDF.js לתצוגת PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <style>
+        /* ===== Beit Midrash Lishma — refined design system =====
+           Home = "Modern Stone" (ink #1C2530 + brass #9C7A32, light)
+           Archive = "Warm Heritage" (sand + olive-bronze #8C7A3A)
+           Admin / modals = Modern Stone
+        */
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Assistant', 'Heebo', sans-serif;
+            background: #FAF9F6;
+            margin: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+        h1, h2, h3, .serif-font { font-family: 'Frank Ruhl Libre', serif; }
+
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background-color: #C2A86A; border-radius: 10px; }
+
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .gold-shimmer {
+            background: linear-gradient(90deg, #9C7A32 0%, #d8be84 25%, #9C7A32 50%, #d8be84 75%, #9C7A32 100%);
+            background-size: 200% 100%;
+            animation: shimmer 3s infinite linear;
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+
+        /* subtle paper texture for the warm archive landing */
+        .pattern-bg {
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%238C7A3A' fill-opacity='0.035'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .pdf-container { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; }
+        .pdf-page { margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        input:focus, button:focus { outline: none; }
+
+        /* clean card (was frosted glass) */
+        .glass-card {
+            background: #FFFFFF;
+            backdrop-filter: none;
+            border: 1px solid #ECE7DD;
+            box-shadow: 0 1px 2px rgba(28,37,48,0.04);
+        }
+        .hover-lift { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+        .hover-lift:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(28,37,48,0.10); }
+
+        .book-header { transition: all 0.2s ease; }
+        .book-header:hover { background-color: rgba(140,122,58,0.10); }
+        .parsha-list { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
+        .parsha-list.open { max-height: 1000px; }
+
+        /* =========================================================
+           SCOPED PALETTE OVERRIDES
+           Re-map the original amber/gold utilities per section so
+           we keep every className & all logic untouched.
+           ========================================================= */
+
+        /* ---- Admin panel + modals : Modern Stone (ink + brass) ---- */
+        .admin-scope .bg-amber-50 { background-color:#F3EEE3 !important; }
+        .admin-scope .bg-amber-100 { background-color:#ECE3CE !important; }
+        .admin-scope .hover\:bg-amber-200:hover { background-color:#E3D6B8 !important; }
+        .admin-scope .hover\:bg-amber-50:hover { background-color:#F3EEE3 !important; }
+        .admin-scope .bg-amber-600 { background-color:#1C2530 !important; }
+        .admin-scope .hover\:bg-amber-700:hover { background-color:#2A3744 !important; }
+        .admin-scope .text-amber-600 { color:#9C7A32 !important; }
+        .admin-scope .text-amber-700 { color:#9C7A32 !important; }
+        .admin-scope .hover\:text-amber-700:hover { color:#876A2B !important; }
+        .admin-scope .text-amber-800 { color:#1C2530 !important; }
+        .admin-scope .border-amber-600 { border-color:#9C7A32 !important; }
+        .admin-scope .border-amber-300 { border-color:#D8C8A6 !important; }
+        .admin-scope .border-amber-200 { border-color:#E0D3B0 !important; }
+        .admin-scope .focus\:border-amber-500:focus { border-color:#9C7A32 !important; }
+        .admin-scope .focus\:ring-amber-500\/20:focus { --tw-ring-color:rgba(156,122,50,0.20) !important; }
+        .admin-scope .focus\:ring-amber-500:focus { --tw-ring-color:rgba(156,122,50,0.45) !important; }
+
+        /* ---- Archive / reader / about : Warm Heritage (olive-bronze) ---- */
+        .archive-scope .text-amber-600 { color:#8C7A3A !important; }
+        .archive-scope .text-amber-700 { color:#8C7A3A !important; }
+        .archive-scope .hover\:text-amber-700:hover { color:#76652F !important; }
+        .archive-scope .hover\:text-amber-800:hover { color:#5F5226 !important; }
+        .archive-scope .hover\:text-amber-900:hover { color:#4B411E !important; }
+        .archive-scope .text-amber-800 { color:#76652F !important; }
+        .archive-scope .text-amber-900 { color:#4B411E !important; }
+        .archive-scope .bg-amber-50 { background-color:#F6EFE0 !important; }
+        .archive-scope .bg-amber-100 { background-color:#EFE6D0 !important; }
+        .archive-scope .hover\:bg-amber-50:hover { background-color:#F6EFE0 !important; }
+        .archive-scope .hover\:bg-amber-100:hover { background-color:#EBE0C5 !important; }
+        .archive-scope .border-amber-200 { border-color:#E5DAC6 !important; }
+        .archive-scope .border-amber-300 { border-color:#D8CBAE !important; }
+        .archive-scope .focus\:border-amber-500:focus { border-color:#8C7A3A !important; }
+        .archive-scope .from-amber-50 { --tw-gradient-from:#F9F3E6 var(--tw-gradient-from-position) !important; --tw-gradient-to:rgb(249 243 230 / 0) var(--tw-gradient-to-position) !important; }
+        .archive-scope .to-amber-50 { --tw-gradient-to:#F9F3E6 var(--tw-gradient-to-position) !important; }
+        .archive-scope .from-amber-100 { --tw-gradient-from:#EFE6D0 var(--tw-gradient-from-position) !important; --tw-gradient-to:rgb(239 230 208 / 0) var(--tw-gradient-to-position) !important; }
+        .archive-scope .from-amber-600 { --tw-gradient-from:#8C7A3A var(--tw-gradient-from-position) !important; --tw-gradient-to:rgb(140 122 58 / 0) var(--tw-gradient-to-position) !important; }
+        .archive-scope .to-amber-700 { --tw-gradient-to:#6F6030 var(--tw-gradient-to-position) !important; }
+        .archive-scope .hover\:from-amber-700:hover { --tw-gradient-from:#76652F var(--tw-gradient-from-position) !important; --tw-gradient-to:rgb(118 101 47 / 0) var(--tw-gradient-to-position) !important; }
+        .archive-scope .hover\:to-amber-800:hover { --tw-gradient-to:#5F5226 var(--tw-gradient-to-position) !important; }
+        .archive-scope ::-webkit-scrollbar-thumb { background-color:#C2A86A; }
+    </style>
+</head>
+<body class="text-stone-800 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/app-source" id="app-src">
+        // ========== Firebase Configuration ==========
+        const firebaseConfig = {
+            apiKey: "AIzaSyC9dUKsuyJgt3DD1TORbfOzFKdsIOGJ65s",
+            authDomain: "harav-tabady.firebaseapp.com",
+            projectId: "harav-tabady",
+            storageBucket: "harav-tabady.firebasestorage.app",
+            messagingSenderId: "102830776454",
+            appId: "1:102830776454:web:5ebc97830d5e86a1313107"
+        };
+
+        // Initialize Firebase
+        let db = null, storage = null, auth = null;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            // יצירת storage עם bucket מפורש
+            storage = firebase.app().storage("gs://harav-tabady.firebasestorage.app");
+            auth = firebase.auth();
+            console.log("Firebase Storage initialized successfully");
+        } catch (e) {
+            console.log("Firebase init error:", e);
+        }
+
+        // ========== Statistics Functions ==========
+        // יצירת/קבלת מזהה ייחודי למבקר
+        const getVisitorId = () => {
+            let visitorId = localStorage.getItem('visitorId');
+            if (!visitorId) {
+                visitorId = 'v_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('visitorId', visitorId);
+            }
+            return visitorId;
+        };
+        
+        // רישום ביקור חדש (נקרא פעם אחת בכניסה לאתר)
+        const recordVisit = async () => {
+            if (!storage) return;
+            
+            const visitorId = getVisitorId();
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            const lastVisitDate = localStorage.getItem('lastVisitDate');
+            
+            // אם כבר ביקר היום - לא סופרים שוב
+            if (lastVisitDate === today) {
+                console.log("Already visited today");
+                return;
+            }
+            
+            try {
+                // קריאת הסטטיסטיקות הקיימות
+                let stats = { visitors: [], totalVisits: 0, downloads: 0 };
+                try {
+                    const statsRef = storage.ref('stats/stats.json');
+                    const url = await statsRef.getDownloadURL();
+                    const response = await fetch(url);
+                    stats = await response.json();
+                } catch (e) {
+                    console.log("Creating new stats file");
+                }
+                
+                // בדיקה אם זה מבקר חדש לגמרי
+                const isNewVisitor = !stats.visitors.includes(visitorId);
+                if (isNewVisitor) {
+                    stats.visitors.push(visitorId);
+                }
+                
+                // הגדלת מונה ביקורים
+                stats.totalVisits = (stats.totalVisits || 0) + 1;
+                
+                // שמירה
+                const jsonBlob = new Blob([JSON.stringify(stats)], { type: 'application/json' });
+                const statsRef = storage.ref('stats/stats.json');
+                await statsRef.put(jsonBlob);
+                
+                // עדכון תאריך ביקור אחרון
+                localStorage.setItem('lastVisitDate', today);
+                console.log("Visit recorded", isNewVisitor ? "(new visitor)" : "(returning visitor)");
+            } catch (e) {
+                console.log("Error recording visit:", e);
+            }
+        };
+        
+        // רישום הורדה/צפייה בעלון
+        const recordDownload = async (newsletterName) => {
+            if (!storage) return;
+            
+            try {
+                let stats = { visitors: [], totalVisits: 0, downloads: 0 };
+                try {
+                    const statsRef = storage.ref('stats/stats.json');
+                    const url = await statsRef.getDownloadURL();
+                    const response = await fetch(url);
+                    stats = await response.json();
+                } catch (e) {}
+                
+                stats.downloads = (stats.downloads || 0) + 1;
+                
+                const jsonBlob = new Blob([JSON.stringify(stats)], { type: 'application/json' });
+                const statsRef = storage.ref('stats/stats.json');
+                await statsRef.put(jsonBlob);
+                console.log("Download recorded for:", newsletterName);
+            } catch (e) {
+                console.log("Error recording download:", e);
+            }
+        };
+        
+        // טעינת סטטיסטיקות לממשק ניהול
+        const loadStats = async () => {
+            if (!storage) return { uniqueVisitors: 0, totalVisits: 0, downloads: 0 };
+            
+            try {
+                const statsRef = storage.ref('stats/stats.json');
+                const url = await statsRef.getDownloadURL();
+                const response = await fetch(url);
+                const stats = await response.json();
+                return {
+                    uniqueVisitors: stats.visitors?.length || 0,
+                    totalVisits: stats.totalVisits || 0,
+                    downloads: stats.downloads || 0
+                };
+            } catch (e) {
+                return { uniqueVisitors: 0, totalVisits: 0, downloads: 0 };
+            }
+        };
+        
+        // רישום ביקור בטעינת הדף
+        recordVisit();
+
+        // ========== Site Settings (אודות + קישור תרומות) ==========
+        // נשמר ב-Firebase Storage תחת settings/site.json וניתן לעריכה מהניהול
+        const DEFAULT_SETTINGS = {
+            payboxUrl: "https://payboxapp.page.link/i8u4T5c5bMmzjqNg6",
+            siteUrl: "https://lishmah.co.il",
+            siteUrlLabel: "לאתר בית המדרש המלא",
+            aboutIntro: 'אתר זה מכיל את כתב העת המופץ על ידי בית מדרש "לשמה". העלונים מהווים סיכומים משיעוריו הרבים של הרב בנימין טבדי בתחומי ההלכה והאגדה, ומביאים לקוראים תוכן תורני עמוק, מרתק ונגיש.',
+            aboutBox1Title: "על בית המדרש",
+            aboutBox1Text: 'בית המדרש להכשרת רבנים "לשמה" הוקם באלול תשע"ח, במטרה לחבר בין לומדי תורה ותלמידי חכמים לבין הציבור המעוניין בלימוד תורה רציני, עמוק, נוגע ומשמעותי.',
+            aboutBox2Title: "ראש בית המדרש",
+            aboutBox2Text: 'בראש בית המדרש עומד הרב בנימין טבדי – בוגר ישיבות "מרכז הרב" שבירושלים ו"מעלה אליהו" שבתל-אביב. הרב ידוע באהבתו המיוחדת ללמד תורה לכל החפץ בכך, וביכולותיו להעביר את התכנים העמוקים לציבורים מגוונים בהתלהבות ובסגנון רהוט וברור.'
+        };
+
+        const loadSiteSettings = async () => {
+            if (!storage) return { ...DEFAULT_SETTINGS };
+            try {
+                const ref = storage.ref('settings/site.json');
+                const url = await ref.getDownloadURL();
+                const response = await fetch(url);
+                const data = await response.json();
+                return { ...DEFAULT_SETTINGS, ...data };
+            } catch (e) {
+                return { ...DEFAULT_SETTINGS };
+            }
+        };
+
+        const saveSiteSettings = async (settings) => {
+            if (!storage) return false;
+            const blob = new Blob([JSON.stringify(settings)], { type: 'application/json' });
+            await storage.ref('settings/site.json').put(blob);
+            return true;
+        };
+
+
+        // ========== PDF.js Configuration ==========
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+
+        // ========== Icons ==========
+        const Icons = {
+            Search: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>,
+            Menu: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>,
+            Book: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>,
+            X: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
+            Download: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>,
+            Mail: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>,
+            Upload: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>,
+            Send: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>,
+            Home: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>,
+            Settings: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+            Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20,6 9,17 4,12"/></svg>,
+            Users: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+            Star: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>,
+            // ספר נפתח - לוגו
+            OpenBook: () => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 64 64" fill="none">
+                    {/* צל */}
+                    <ellipse cx="32" cy="56" rx="24" ry="4" fill="#d4a574" opacity="0.3"/>
+                    {/* עמוד שמאל */}
+                    <path d="M6 12C6 10 8 8 12 8C20 8 28 10 32 14V52C28 48 20 46 12 46C8 46 6 48 6 50V12Z" fill="#fef3e2" stroke="#b8860b" strokeWidth="2"/>
+                    {/* עמוד ימין */}
+                    <path d="M58 12C58 10 56 8 52 8C44 8 36 10 32 14V52C36 48 44 46 52 46C56 46 58 48 58 50V12Z" fill="#fef3e2" stroke="#b8860b" strokeWidth="2"/>
+                    {/* כריכה שמאל */}
+                    <path d="M4 10C4 8 6 6 10 6C18 6 28 8 32 12V14C28 10 20 8 12 8C8 8 6 10 6 12V50C6 48 8 46 12 46C20 46 28 48 32 52V54C28 50 18 48 10 48C6 48 4 50 4 52V10Z" fill="#8B4513" stroke="#5D3A1A" strokeWidth="1"/>
+                    {/* כריכה ימין */}
+                    <path d="M60 10C60 8 58 6 54 6C46 6 36 8 32 12V14C36 10 44 8 52 8C56 8 58 10 58 12V50C58 48 56 46 52 46C44 46 36 48 32 52V54C36 50 46 48 54 48C58 48 60 50 60 52V10Z" fill="#8B4513" stroke="#5D3A1A" strokeWidth="1"/>
+                    {/* שורות טקסט שמאל */}
+                    <line x1="12" y1="20" x2="26" y2="22" stroke="#c9a86c" strokeWidth="1.5" opacity="0.6"/>
+                    <line x1="12" y1="26" x2="24" y2="28" stroke="#c9a86c" strokeWidth="1.5" opacity="0.6"/>
+                    <line x1="12" y1="32" x2="25" y2="34" stroke="#c9a86c" strokeWidth="1.5" opacity="0.6"/>
+                    {/* שורות טקסט ימין */}
+                    <line x1="52" y1="20" x2="38" y2="22" stroke="#c9a86c" strokeWidth="1.5" opacity="0.6"/>
+                    <line x1="52" y1="26" x2="40" y2="28" stroke="#c9a86c" strokeWidth="1.5" opacity="0.6"/>
+                    <line x1="52" y1="32" x2="39" y2="34" stroke="#c9a86c" strokeWidth="1.5" opacity="0.6"/>
+                    {/* עמוד שדרה */}
+                    <path d="M32 12V54" stroke="#5D3A1A" strokeWidth="2"/>
+                </svg>
+            ),
+            FileText: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>,
+            ZoomIn: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>,
+            ZoomOut: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/></svg>,
+            ChevronLeft: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m15 18-6-6 6-6"/></svg>,
+            ChevronRight: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m9 18 6-6-6-6"/></svg>,
+            Pencil: () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>,
+            Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
+        };
+
+        // ========== Newsletter Data ==========
+        // רשימת העלונים נטענת דינמית מ-Firebase Storage
+
+        // ========== PDF Viewer Component ==========
+        function PDFViewer({ pdfUrl, fileName, isLoading }) {
+            // במובייל - ברירת מחדל Google Docs
+            const [viewMode, setViewMode] = React.useState(isMobile ? 'google' : 'embed');
+            const [loading, setLoading] = React.useState(true);
+            const [error, setError] = React.useState(null);
+            
+            // איפוס loading כשמשתנה URL
+            React.useEffect(() => {
+                setLoading(true);
+                setError(null);
+            }, [pdfUrl]);
+            
+            const isWord = fileName && (fileName.endsWith('.doc') || fileName.endsWith('.docx'));
+            const isPdf = fileName && fileName.endsWith('.pdf');
+            
+            // Google Docs Viewer URL
+            const googleViewerUrl = pdfUrl ? `https://docs.google.com/viewer?url=${encodeURIComponent(pdfUrl)}&embedded=true` : '';
+            
+            // Microsoft Office Online Viewer (for Word)
+            const officeViewerUrl = pdfUrl ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(pdfUrl)}` : '';
+
+            // מסך טעינה של הפרשה
+            if (isLoading) {
+                return (
+                    <div className="flex flex-col items-center justify-center h-96 bg-white rounded-2xl border-2 border-stone-200">
+                        <div className="w-12 h-12 border-4 border-amber-200 border-t-amber-600 rounded-full animate-spin mb-4"></div>
+                        <p className="text-stone-500">טוען עלון...</p>
+                    </div>
+                );
+            }
+
+            if (!pdfUrl) {
+                return (
+                    <div className="flex flex-col items-center justify-center h-96 text-stone-400 bg-white rounded-2xl border-2 border-dashed border-stone-200">
+                        <div className="text-6xl mb-4 opacity-30">
+                            <Icons.FileText />
+                        </div>
+                        <p className="text-lg font-medium">לא הועלה עלון עדיין</p>
+                        <p className="text-sm mt-2">המנהל יכול להעלות עלון דרך ממשק הניהול</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="space-y-4">
+                    {/* כפתורי תצוגה */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white rounded-xl border border-stone-200 shadow-sm">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-stone-500">תצוגה:</span>
+                            <button
+                                onClick={() => setViewMode('embed')}
+                                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${viewMode === 'embed' ? 'bg-amber-100 text-amber-800 font-medium' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}
+                            >
+                                מוטמע
+                            </button>
+                            <button
+                                onClick={() => setViewMode('google')}
+                                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${viewMode === 'google' ? 'bg-amber-100 text-amber-800 font-medium' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}
+                            >
+                                Google Docs
+                            </button>
+                        </div>
+                        
+                        {/* כפתור הורדה */}
+                        <a 
+                            href={pdfUrl} 
+                            download={fileName}
+                            target="_blank"
+                            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-l from-amber-600 to-amber-700 text-white rounded-xl hover:from-amber-700 hover:to-amber-800 transition-all shadow-md hover:shadow-lg font-medium"
+                        >
+                            <Icons.Download />
+                            הורד לצפייה במחשב
+                        </a>
+                    </div>
+                    
+                    {/* תצוגת המסמך */}
+                    <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-stone-200">
+                        {viewMode === 'embed' && (
+                            <div className="relative">
+                                {loading && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-stone-50 z-10">
+                                        <div className="w-12 h-12 border-4 border-amber-200 border-t-amber-600 rounded-full animate-spin mb-4"></div>
+                                        <p className="text-stone-500">טוען מסמך...</p>
+                                    </div>
+                                )}
+                                {isWord ? (
+                                    <iframe
+                                        src={officeViewerUrl}
+                                        className="w-full border-0"
+                                        style={{ height: '120vh' }}
+                                        onLoad={() => setLoading(false)}
+                                        onError={() => {
+                                            setError(true);
+                                            setLoading(false);
+                                        }}
+                                    />
+                                ) : (
+                                    <iframe
+                                        src={pdfUrl}
+                                        className="w-full border-0"
+                                        style={{ height: '120vh' }}
+                                        onLoad={() => setLoading(false)}
+                                        onError={() => {
+                                            setError(true);
+                                            setLoading(false);
+                                        }}
+                                    />
+                                )}
+                            </div>
+                        )}
+                        
+                        {viewMode === 'google' && (
+                            <div className="relative">
+                                {loading && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-stone-50 z-10">
+                                        <div className="w-12 h-12 border-4 border-amber-200 border-t-amber-600 rounded-full animate-spin mb-4"></div>
+                                        <p className="text-stone-500">טוען דרך Google Docs...</p>
+                                    </div>
+                                )}
+                                <iframe
+                                    src={googleViewerUrl}
+                                    className="w-full border-0"
+                                    style={{ height: '120vh' }}
+                                    onLoad={() => setLoading(false)}
+                                />
+                            </div>
+                        )}
+                    </div>
+                    
+                </div>
+            );
+        }
+
+        // ========== Unsubscribe Modal Component ==========
+        function UnsubscribeModal({ onClose }) {
+            const [email, setEmail] = React.useState("");
+            const [status, setStatus] = React.useState(null); // 'loading', 'success', 'error', 'not-found'
+            
+            const handleUnsubscribe = async (e) => {
+                e.preventDefault();
+                
+                if (!email || !email.includes('@')) {
+                    setStatus('error');
+                    return;
+                }
+                
+                setStatus('loading');
+                
+                try {
+                    if (storage) {
+                        // קריאת הרשימה הקיימת
+                        let subscribers = [];
+                        try {
+                            const listRef = storage.ref('subscribers/list.json');
+                            const url = await listRef.getDownloadURL();
+                            const response = await fetch(url);
+                            const data = await response.json();
+                            subscribers = data.subscribers || [];
+                        } catch (e) {
+                            setStatus('not-found');
+                            return;
+                        }
+                        
+                        // חיפוש המייל
+                        const index = subscribers.findIndex(s => s.email === email);
+                        if (index === -1) {
+                            setStatus('not-found');
+                            return;
+                        }
+                        
+                        // הסרת המייל
+                        subscribers.splice(index, 1);
+                        
+                        // שמירה חזרה
+                        const jsonBlob = new Blob([JSON.stringify({ subscribers })], { type: 'application/json' });
+                        const listRef = storage.ref('subscribers/list.json');
+                        await listRef.put(jsonBlob);
+                        
+                        setStatus('success');
+                    } else {
+                        // Demo mode
+                        await new Promise(r => setTimeout(r, 1000));
+                        setStatus('success');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    setStatus('error');
+                }
+            };
+            
+            return (
+                <div className="admin-scope fixed inset-0 bg-stone-900/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 animate-fade-in">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-bold serif-font">ביטול הרשמה</h2>
+                            <button onClick={onClose} className="text-stone-400 hover:text-stone-600">
+                                <Icons.X />
+                            </button>
+                        </div>
+                        
+                        {status === 'success' ? (
+                            <div className="text-center py-8">
+                                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600">
+                                    <Icons.Check />
+                                </div>
+                                <h3 className="text-xl font-bold text-stone-800 mb-2">הוסרת בהצלחה</h3>
+                                <p className="text-stone-600">לא תקבל יותר עלונים למייל זה.</p>
+                                <button
+                                    onClick={onClose}
+                                    className="mt-6 px-6 py-2 bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200"
+                                >
+                                    סגור
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <p className="text-stone-600 mb-6">
+                                    הכנס את כתובת המייל שברצונך להסיר מרשימת התפוצה
+                                </p>
+                                
+                                <form onSubmit={handleUnsubscribe} className="space-y-4">
+                                    <div className="relative">
+                                        <input
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            placeholder="כתובת המייל"
+                                            className="w-full px-4 py-3 pr-11 text-right bg-white border-2 border-stone-200 rounded-xl focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20"
+                                            disabled={status === 'loading'}
+                                        />
+                                        <span className="absolute right-3 top-3.5 text-stone-400">
+                                            <Icons.Mail />
+                                        </span>
+                                    </div>
+                                    
+                                    {status === 'not-found' && (
+                                        <p className="text-amber-600 text-sm">כתובת המייל לא נמצאה ברשימה</p>
+                                    )}
+                                    {status === 'error' && (
+                                        <p className="text-red-600 text-sm">שגיאה, נסה שוב</p>
+                                    )}
+                                    
+                                    <button
+                                        type="submit"
+                                        disabled={status === 'loading'}
+                                        className="w-full py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 disabled:opacity-70 flex items-center justify-center gap-2"
+                                    >
+                                        {status === 'loading' ? (
+                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        ) : (
+                                            <>
+                                                <Icons.X />
+                                                הסר מהרשימה
+                                            </>
+                                        )}
+                                    </button>
+                                </form>
+                            </>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // ========== Home Screen Component ==========
+        function HomeScreen({ onNavigate, subscriberCount, payboxUrl }) {
+            const [email, setEmail] = React.useState("");
+            const [status, setStatus] = React.useState(null); // 'loading', 'success', 'error'
+            const [errorMsg, setErrorMsg] = React.useState("");
+            const [showUnsubscribe, setShowUnsubscribe] = React.useState(false);
+
+            const handleSubscribe = async (e) => {
+                e.preventDefault();
+                
+                if (!email || !email.includes('@')) {
+                    setStatus('error');
+                    setErrorMsg('נא להזין כתובת מייל תקינה');
+                    return;
+                }
+
+                setStatus('loading');
+                console.log("Starting subscription for:", email);
+                console.log("Storage available:", !!storage);
+
+                try {
+                    if (storage) {
+                        // קריאת הרשימה הקיימת
+                        let subscribers = [];
+                        try {
+                            const listRef = storage.ref('subscribers/list.json');
+                            console.log("Getting download URL...");
+                            const url = await listRef.getDownloadURL();
+                            console.log("URL:", url);
+                            const response = await fetch(url);
+                            const data = await response.json();
+                            subscribers = data.subscribers || [];
+                            console.log("Existing subscribers:", subscribers.length);
+                        } catch (e) {
+                            // הקובץ לא קיים עדיין - זה בסדר
+                            console.log("Creating new subscribers list, error was:", e.message);
+                        }
+                        
+                        // בדיקה אם המייל כבר קיים
+                        if (subscribers.some(s => s.email === email)) {
+                            setStatus('error');
+                            setErrorMsg('כתובת המייל כבר רשומה במערכת');
+                            return;
+                        }
+                        
+                        // הוספת הנרשם החדש
+                        subscribers.push({
+                            email: email,
+                            subscribedAt: new Date().toISOString()
+                        });
+                        
+                        // שמירה חזרה
+                        console.log("Saving subscribers:", subscribers.length);
+                        const jsonBlob = new Blob([JSON.stringify({ subscribers })], { type: 'application/json' });
+                        const listRef = storage.ref('subscribers/list.json');
+                        await listRef.put(jsonBlob);
+                        console.log("Saved successfully!");
+                        
+                        setStatus('success');
+                        setEmail("");
+                    } else {
+                        console.log("No storage - demo mode");
+                        // Demo mode
+                        await new Promise(r => setTimeout(r, 1000));
+                        setStatus('success');
+                        setEmail("");
+                    }
+                } catch (err) {
+                    setStatus('error');
+                    setErrorMsg('שגיאה בהרשמה, נסה שוב');
+                    console.error("Subscribe error:", err);
+                }
+            };
+
+            return (
+                <div className="min-h-screen" style={{ background: '#FAF9F6' }}>
+                    {/* Top bar */}
+                    <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#ECE7DD]">
+                        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <img src="logo-lishmah.png" alt="לשמה" style={{ height: '38px', width: 'auto' }} />
+                                <span className="serif-font text-lg md:text-xl font-bold text-[#1C2530]">בית מדרש לשמה</span>
+                            </div>
+                            <nav className="flex items-center gap-1">
+                                <button onClick={() => onNavigate('newsletters')} className="px-3 sm:px-4 py-2 text-sm font-medium text-[#5A6573] hover:text-[#1C2530] hover:bg-stone-50 rounded-lg transition-colors">ארכיון</button>
+                                <a href="store/index.html" className="px-3 sm:px-4 py-2 text-sm font-bold text-[#1C2530] border border-[#D6CEBE] hover:bg-stone-50 rounded-lg transition-colors no-underline flex items-center gap-1.5"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>חנות הספרים</a>
+                                <a href={payboxUrl} target="_blank" rel="noopener noreferrer" className="px-3 sm:px-4 py-2 text-sm font-bold text-[#9C7A32] hover:bg-[#F3EEE3] rounded-lg transition-colors">תרומה</a>
+                            </nav>
+                        </div>
+                    </header>
+
+                    {/* Hero */}
+                    <section className="relative" style={{ background: 'linear-gradient(180deg,#ECE4D6 0%,#E7DECE 100%)' }}>
+                        <div className="max-w-3xl mx-auto px-6 py-20 md:py-28 text-center">
+                            <div className="text-xs md:text-sm font-bold tracking-[0.4em] text-[#9C7A32] mb-5">כ ת ב   ע ת</div>
+                            <h1 className="text-5xl md:text-7xl font-extrabold text-[#1C2530] serif-font tracking-tight" style={{ lineHeight: 1.02 }}>
+                                בית מדרש לשמה
+                            </h1>
+                            <p className="text-lg md:text-xl text-[#5A6573] mt-6 max-w-xl mx-auto leading-relaxed">
+                                סיכומי שיעוריו של הרב בנימין טבדי בהלכה ובאגדה — ישירות אליכם, לפני כל שבת.
+                            </p>
+
+                            {/* Subscribe */}
+                            <form onSubmit={handleSubscribe} className="mt-10 max-w-lg mx-auto">
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <div className="relative flex-1">
+                                        <input
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            placeholder="כתובת המייל שלכם"
+                                            disabled={status === 'loading'}
+                                            className="w-full px-4 py-3.5 pr-11 text-right bg-white border border-[#D6CEBE] rounded-xl focus:border-[#9C7A32] focus:ring-4 focus:ring-[#9C7A32]/15 transition-all"
+                                        />
+                                        <span className="absolute right-3.5 top-3.5 text-[#9aa3ad]"><Icons.Mail /></span>
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        disabled={status === 'loading'}
+                                        className="py-3.5 px-7 bg-[#1C2530] text-white rounded-xl font-bold hover:bg-[#2A3744] transition-all disabled:opacity-70 flex items-center justify-center gap-2 whitespace-nowrap"
+                                    >
+                                        {status === 'loading' ? (
+                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        ) : status === 'success' ? (
+                                            <><Icons.Check />נרשמת בהצלחה!</>
+                                        ) : (
+                                            <><Icons.Send />הרשמה לעלון</>
+                                        )}
+                                    </button>
+                                </div>
+                                <div className="text-xs mt-3">
+                                    {status === 'error'
+                                        ? <span className="text-red-600">{errorMsg}</span>
+                                        : <span className="text-[#8a8578]">קבלו את העלון ישירות למייל לפני כל שבת</span>}
+                                </div>
+                            </form>
+                        </div>
+                    </section>
+
+                    {/* Features */}
+                    <section className="max-w-5xl mx-auto px-6 py-16 md:py-20">
+                        <div className="grid md:grid-cols-3 gap-5">
+                            <div className="bg-white border border-[#ECE7DD] rounded-2xl p-7 hover-lift">
+                                <div className="w-12 h-12 bg-[#F3EEE3] rounded-xl flex items-center justify-center mb-4 text-[#9C7A32]"><Icons.Book /></div>
+                                <h3 className="text-lg font-bold text-[#1C2530] mb-1.5 serif-font">ארכיון העלונים</h3>
+                                <p className="text-[#5A6573] text-sm leading-relaxed">גישה מסודרת לכל העלונים הקודמים</p>
+                            </div>
+                            <div className="bg-white border border-[#ECE7DD] rounded-2xl p-7 hover-lift">
+                                <div className="w-12 h-12 bg-[#F3EEE3] rounded-xl flex items-center justify-center mb-4 text-[#9C7A32]"><Icons.Download /></div>
+                                <h3 className="text-lg font-bold text-[#1C2530] mb-1.5 serif-font">הורדה והדפסה</h3>
+                                <p className="text-[#5A6573] text-sm leading-relaxed">הורידו את העלון בקלות להדפסה ביתית</p>
+                            </div>
+                            <div className="bg-white border border-[#ECE7DD] rounded-2xl p-7 hover-lift">
+                                <div className="w-12 h-12 bg-[#F3EEE3] rounded-xl flex items-center justify-center mb-4 text-[#9C7A32]"><Icons.Mail /></div>
+                                <h3 className="text-lg font-bold text-[#1C2530] mb-1.5 serif-font">עדכון שבועי</h3>
+                                <p className="text-[#5A6573] text-sm leading-relaxed">העלון החדש מגיע אוטומטית לפני שבת</p>
+                            </div>
+                        </div>
+
+                        <div className="text-center mt-12 flex flex-col items-center gap-4">
+                            <button
+                                onClick={() => onNavigate('newsletters')}
+                                className="inline-flex items-center gap-3 px-8 py-4 bg-[#1C2530] text-white rounded-xl font-bold text-lg hover:bg-[#2A3744] transition-all"
+                            >
+                                <Icons.Book />
+                                לארכיון העלונים
+                                <Icons.ChevronLeft />
+                            </button>
+                            <a
+                                href={payboxUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 px-6 py-3 text-[#9C7A32] font-bold hover:bg-[#F3EEE3] rounded-xl transition-colors"
+                            >
+                                <span className="text-lg">♥</span>
+                                תרומה להוצאת העלון
+                            </a>
+                        </div>
+                    </section>
+
+                    {/* Footer */}
+                    <footer className="bg-[#1C2530] text-[#9aa3ad] py-10 mt-4">
+                        <div className="max-w-4xl mx-auto px-6 text-center">
+                            <p className="mb-4 text-sm">בית מדרש לשמה • כתב עת של הרב בנימין טבדי</p>
+                            <button
+                                onClick={() => setShowUnsubscribe(true)}
+                                className="text-[#7c8694] hover:text-white text-sm underline transition-colors"
+                            >
+                                ביטול הרשמה לעלון
+                            </button>
+                        </div>
+                    </footer>
+
+                    {/* Unsubscribe Modal */}
+                    {showUnsubscribe && <UnsubscribeModal onClose={() => setShowUnsubscribe(false)} />}
+                </div>
+            );
+        }
+
+        // ========== Admin Panel Component ==========
+        function AdminPanel({ onClose, newsletters, setNewsletters, siteSettings, setSiteSettings }) {
+            const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+            const [authLoading, setAuthLoading] = React.useState(true);
+            const [loginEmail, setLoginEmail] = React.useState("");
+            const [loginPassword, setLoginPassword] = React.useState("");
+            const [loginError, setLoginError] = React.useState("");
+            const [rememberMe, setRememberMe] = React.useState(false);
+
+            const [subscribers, setSubscribers] = React.useState([]);
+            const [newsletterNumber, setNewsletterNumber] = React.useState("");
+            const [selectedNewsletter, setSelectedNewsletter] = React.useState(null);
+            const [uploadFile, setUploadFile] = React.useState(null);
+            const [uploadTopics, setUploadTopics] = React.useState("");
+            const [uploadSubtitle, setUploadSubtitle] = React.useState("");
+            const [showTagSuggestions, setShowTagSuggestions] = React.useState(false);
+            const topicsInputRef = React.useRef(null);
+
+            // כל האשטגים הקיימים ממוינים לפי א-ב
+            const existingTags = React.useMemo(() => {
+                const tags = new Set();
+                newsletters.forEach(n => {
+                    (n.topics || []).forEach(t => {
+                        const clean = t.replace(/^#/, '').trim();
+                        if (clean) tags.add(clean);
+                    });
+                });
+                return [...tags].sort((a, b) => a.localeCompare(b, 'he'));
+            }, [newsletters]);
+            const [uploading, setUploading] = React.useState(false);
+            const [sendingEmail, setSendingEmail] = React.useState(false);
+            const [activeTab, setActiveTab] = React.useState('upload');
+
+            // שדות מייל
+            const [emailSubject, setEmailSubject] = React.useState("");
+            const [emailBody, setEmailBody] = React.useState("");
+            const [saveAsTemplate, setSaveAsTemplate] = React.useState(false);
+
+            // סטטיסטיקות
+            const [stats, setStats] = React.useState({ uniqueVisitors: 0, totalVisits: 0, downloads: 0 });
+            const [loadingStats, setLoadingStats] = React.useState(false);
+
+            // הגדרות אתר (אודות + קישור תרומות)
+            const [settingsForm, setSettingsForm] = React.useState(siteSettings || DEFAULT_SETTINGS);
+            const [savingSettings, setSavingSettings] = React.useState(false);
+            const [settingsSaved, setSettingsSaved] = React.useState(false);
+            React.useEffect(() => { setSettingsForm(siteSettings || DEFAULT_SETTINGS); }, [siteSettings]);
+
+            const updateSettingField = (key, value) => {
+                setSettingsForm(prev => ({ ...prev, [key]: value }));
+                setSettingsSaved(false);
+            };
+
+            const handleSaveSettings = async () => {
+                setSavingSettings(true);
+                setSettingsSaved(false);
+                try {
+                    if (storage) {
+                        await saveSiteSettings(settingsForm);
+                    }
+                    setSiteSettings(settingsForm);
+                    setSettingsSaved(true);
+                } catch (err) {
+                    console.error('Error saving settings:', err);
+                    alert('שגיאה בשמירת ההגדרות: ' + err.message);
+                }
+                setSavingSettings(false);
+            };
+
+            // ניקוי localStorage ישן (חד-פעמי)
+            React.useEffect(() => {
+                localStorage.removeItem('adminLogin');
+            }, []);
+
+            // בדיקת מצב התחברות דרך Firebase Auth
+            React.useEffect(() => {
+                if (!auth) {
+                    setAuthLoading(false);
+                    return;
+                }
+                const unsubscribe = auth.onAuthStateChanged((user) => {
+                    setIsLoggedIn(!!user);
+                    setAuthLoading(false);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            // טעינת תבנית מייל שמורה
+            React.useEffect(() => {
+                try {
+                    const savedTemplate = JSON.parse(localStorage.getItem('emailTemplate') || 'null');
+                    if (savedTemplate) {
+                        setEmailBody(savedTemplate.body || "");
+                    }
+                } catch {}
+            }, []);
+
+            // טעינת נרשמים בכניסה
+            React.useEffect(() => {
+                if (isLoggedIn) {
+                    loadSubscribers();
+                    const fetchStats = async () => {
+                        setLoadingStats(true);
+                        const s = await loadStats();
+                        setStats(s);
+                        setLoadingStats(false);
+                    };
+                    fetchStats();
+                }
+            }, [isLoggedIn]);
+
+            // עדכון שדות המייל כשבוחרים עלון
+            React.useEffect(() => {
+                if (selectedNewsletter) {
+                    setEmailSubject(`עלון מספר ${selectedNewsletter.number} - בית מדרש לשמה`);
+                    try {
+                        const savedTemplate = JSON.parse(localStorage.getItem('emailTemplate') || 'null');
+                        if (savedTemplate && savedTemplate.body) {
+                            setEmailBody(savedTemplate.body.replace(/\[עלון\]/g, selectedNewsletter.number));
+                        } else {
+                            setEmailBody(`שלום וברכה!\n\nעלון מספר ${selectedNewsletter.number} מוכן עבורך.\n\nשבת שלום!`);
+                        }
+                    } catch {
+                        setEmailBody(`שלום וברכה!\n\nעלון מספר ${selectedNewsletter.number} מוכן עבורך.\n\nשבת שלום!`);
+                    }
+                }
+            }, [selectedNewsletter]);
+
+            // Login - רק דרך Firebase Auth
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setLoginError("");
+
+                if (!auth) {
+                    setLoginError("שירות ההתחברות אינו זמין כרגע. נסה שוב מאוחר יותר.");
+                    return;
+                }
+
+                try {
+                    const persistence = rememberMe
+                        ? firebase.auth.Auth.Persistence.LOCAL
+                        : firebase.auth.Auth.Persistence.SESSION;
+                    await auth.setPersistence(persistence);
+                    await auth.signInWithEmailAndPassword(loginEmail, loginPassword);
+                    // onAuthStateChanged יעדכן את isLoggedIn
+                } catch (err) {
+                    console.error("Login error:", err.code);
+                    if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+                        setLoginError("שם משתמש או סיסמה שגויים");
+                    } else if (err.code === 'auth/too-many-requests') {
+                        setLoginError("יותר מדי ניסיונות. נסה שוב מאוחר יותר.");
+                    } else {
+                        setLoginError("שגיאה בהתחברות. נסה שוב.");
+                    }
+                }
+            };
+            
+            // התנתקות
+            const handleLogout = async () => {
+                try {
+                    if (auth) await auth.signOut();
+                } catch (err) {
+                    console.error("Logout error:", err);
+                }
+                setIsLoggedIn(false);
+            };
+
+            // Load subscribers
+            const loadSubscribers = async () => {
+                console.log("Loading subscribers, storage:", !!storage);
+                if (storage) {
+                    try {
+                        const listRef = storage.ref('subscribers/list.json');
+                        const url = await listRef.getDownloadURL();
+                        console.log("Subscribers URL:", url);
+                        const response = await fetch(url);
+                        const data = await response.json();
+                        console.log("Loaded subscribers:", data.subscribers?.length || 0);
+                        setSubscribers(data.subscribers || []);
+                    } catch (e) {
+                        // אין קובץ עדיין
+                        console.log("No subscribers file yet:", e.message);
+                        setSubscribers([]);
+                    }
+                } else {
+                    console.log("No storage - using demo data");
+                    // Demo data
+                    setSubscribers([
+                        { email: 'user1@example.com', subscribedAt: new Date().toISOString() },
+                        { email: 'user2@example.com', subscribedAt: new Date().toISOString() },
+                    ]);
+                }
+            };
+
+            // Upload PDF
+            const handleUpload = async () => {
+                if (!uploadFile || !newsletterNumber) return;
+
+                const number = parseInt(newsletterNumber);
+                if (isNaN(number) || number < 1) {
+                    alert('יש להזין מספר עלון תקין');
+                    return;
+                }
+
+                setUploading(true);
+                try {
+                    const fileName = uploadFile.name;
+                    const timestamp = Date.now();
+                    const baseFileName = `${timestamp}_${fileName}`;
+                    const topics = uploadTopics.split(',').map(t => t.trim()).filter(t => t.length > 0);
+
+                    const subtitle = uploadSubtitle.trim();
+
+                    if (storage) {
+                        // העלאת הקובץ לתיקיית העלון
+                        const ref = storage.ref(`newsletters/${number}/${baseFileName}`);
+                        await ref.put(uploadFile);
+                        const url = await ref.getDownloadURL();
+
+                        // העלאת נושאים
+                        if (topics.length > 0) {
+                            const topicsJson = JSON.stringify({ topics });
+                            const topicsBlob = new Blob([topicsJson], { type: 'application/json' });
+                            const topicsRef = storage.ref(`newsletters/${number}/${timestamp}_${fileName.replace(/\.[^/.]+$/, '')}_topics.json`);
+                            await topicsRef.put(topicsBlob);
+                        }
+
+                        // שמירת/עדכון תת-כותרת
+                        if (subtitle) {
+                            const metaJson = JSON.stringify({ subtitle });
+                            const metaBlob = new Blob([metaJson], { type: 'application/json' });
+                            const metaRef = storage.ref(`newsletters/${number}/_meta.json`);
+                            await metaRef.put(metaBlob);
+                        }
+
+                        // עדכון מקומי
+                        const newFile = { name: fileName, url: url, topics: topics, uploadedAt: new Date().toISOString() };
+                        const existing = newsletters.find(n => n.number === number);
+                        let updatedNewsletters;
+
+                        if (existing) {
+                            updatedNewsletters = newsletters.map(n => {
+                                if (n.number === number) {
+                                    const mergedTopics = [...new Set([...(n.topics || []), ...topics])];
+                                    return { ...n, files: [...(n.files || []), newFile], pdfUrl: url, hasFiles: true, subtitle: subtitle || n.subtitle, topics: mergedTopics };
+                                }
+                                return n;
+                            });
+                        } else {
+                            updatedNewsletters = [...newsletters, {
+                                id: `alon-${number}`, number, name: `עלון ${number}`,
+                                pdfUrl: url, hasFiles: true, files: [newFile], subtitle: subtitle, topics: topics
+                            }].sort((a, b) => a.number - b.number);
+                        }
+                        setNewsletters(updatedNewsletters);
+                        alert('הקובץ הועלה בהצלחה!');
+                    } else {
+                        // Demo mode
+                        const localUrl = URL.createObjectURL(uploadFile);
+                        const newFile = { name: uploadFile.name, url: localUrl, topics: topics, uploadedAt: new Date().toISOString() };
+                        const existing = newsletters.find(n => n.number === number);
+                        let updatedNewsletters;
+
+                        if (existing) {
+                            updatedNewsletters = newsletters.map(n => {
+                                if (n.number === number) {
+                                    const mergedTopics = [...new Set([...(n.topics || []), ...topics])];
+                                    return { ...n, files: [...(n.files || []), newFile], pdfUrl: localUrl, hasFiles: true, subtitle: subtitle || n.subtitle, topics: mergedTopics };
+                                }
+                                return n;
+                            });
+                        } else {
+                            updatedNewsletters = [...newsletters, {
+                                id: `alon-${number}`, number, name: `עלון ${number}`,
+                                pdfUrl: localUrl, hasFiles: true, files: [newFile], subtitle: subtitle, topics: topics
+                            }].sort((a, b) => a.number - b.number);
+                        }
+                        setNewsletters(updatedNewsletters);
+                        alert('הקובץ הועלה בהצלחה! (מצב דמו)');
+                    }
+                    setUploadTopics("");
+                    setUploadSubtitle("");
+                    setUploadFile(null);
+                } catch (err) {
+                    alert('שגיאה בהעלאה: ' + err.message);
+                    console.error(err);
+                }
+                setUploading(false);
+            };
+
+            // Send to mailing list (Note: requires backend/Cloud Function)
+            // URL של ה-Worker לשליחת מיילים
+            const EMAIL_WORKER_URL = "https://beit-midrash-email.motiml77.workers.dev";
+            
+            const handleSendToList = async () => {
+                if (!selectedNewsletter) {
+                    alert('יש לבחור עלון');
+                    return;
+                }
+                if (subscribers.length === 0) {
+                    alert('אין נרשמים ברשימה');
+                    return;
+                }
+
+                let pdfUrl = selectedNewsletter.pdfUrl;
+                let fileName = `עלון-${selectedNewsletter.number}.pdf`;
+                let topics = [];
+
+                if (selectedNewsletter.hasFiles && (!selectedNewsletter.files || selectedNewsletter.files.length === 0)) {
+                    try {
+                        const folderRef = storage.ref(`newsletters/${selectedNewsletter.number}`);
+                        const result = await folderRef.listAll();
+                        const contentFiles = result.items.filter(item => !item.name.endsWith('_topics.json'));
+                        if (contentFiles.length > 0) {
+                            pdfUrl = await contentFiles[0].getDownloadURL();
+                            fileName = contentFiles[0].name;
+                        }
+                    } catch (e) {
+                        console.error("Error loading files:", e);
+                    }
+                } else if (selectedNewsletter.files && selectedNewsletter.files.length > 0) {
+                    pdfUrl = selectedNewsletter.files[0].url;
+                    fileName = selectedNewsletter.files[0].name;
+                    topics = selectedNewsletter.files[0].topics || [];
+                }
+
+                if (!pdfUrl) {
+                    alert('אין קובץ בעלון זה');
+                    return;
+                }
+
+                const confirmSend = confirm(`לשלוח את עלון מספר ${selectedNewsletter.number} ל-${subscribers.length} נרשמים?`);
+                if (!confirmSend) return;
+
+                setSendingEmail(true);
+                try {
+                    if (EMAIL_WORKER_URL) {
+                        const response = await fetch(EMAIL_WORKER_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                emails: subscribers.map(s => s.email),
+                                subject: emailSubject,
+                                newsletterName: `עלון ${selectedNewsletter.number}`,
+                                pdfUrl: pdfUrl,
+                                fileName: fileName,
+                                topics: topics,
+                                customBody: emailBody
+                            })
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            alert(`העלון נשלח בהצלחה ל-${result.sent} נרשמים!`);
+                        } else {
+                            alert('שגיאה בשליחה: ' + result.error);
+                        }
+                    } else {
+                        alert('שירות המיילים עדיין לא הוגדר.');
+                    }
+                } catch (err) {
+                    alert('שגיאה בשליחה: ' + err.message);
+                    console.error(err);
+                }
+                setSendingEmail(false);
+            };
+
+            if (authLoading) {
+                return (
+                    <div className="admin-scope fixed inset-0 bg-stone-900/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 animate-fade-in text-center">
+                            <div className="w-12 h-12 border-4 border-amber-200 border-t-amber-600 rounded-full animate-spin mx-auto mb-4"></div>
+                            <p className="text-stone-600">בודק הרשאות...</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (!isLoggedIn) {
+                return (
+                    <div className="admin-scope fixed inset-0 bg-stone-900/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 animate-fade-in">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold serif-font">כניסת מנהל</h2>
+                                <button onClick={onClose} className="text-stone-400 hover:text-stone-600">
+                                    <Icons.X />
+                                </button>
+                            </div>
+                            
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <input
+                                    type="email"
+                                    value={loginEmail}
+                                    onChange={(e) => setLoginEmail(e.target.value)}
+                                    placeholder="מייל"
+                                    className="w-full px-4 py-3 border-2 border-stone-200 rounded-xl focus:border-amber-500"
+                                    dir="ltr"
+                                />
+                                <input
+                                    type="password"
+                                    value={loginPassword}
+                                    onChange={(e) => setLoginPassword(e.target.value)}
+                                    placeholder="סיסמה"
+                                    className="w-full px-4 py-3 border-2 border-stone-200 rounded-xl focus:border-amber-500"
+                                    dir="ltr"
+                                />
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={rememberMe}
+                                        onChange={(e) => setRememberMe(e.target.checked)}
+                                        className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
+                                    />
+                                    <span className="text-sm text-stone-600">זכור אותי</span>
+                                </label>
+                                {loginError && <p className="text-red-600 text-sm">{loginError}</p>}
+                                <button
+                                    type="submit"
+                                    className="w-full py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700"
+                                >
+                                    התחבר
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="admin-scope fixed inset-0 bg-stone-900/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-auto">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-fade-in">
+                        {/* Header */}
+                        <div className="flex justify-between items-center p-6 border-b bg-stone-50">
+                            <h2 className="text-2xl font-bold serif-font flex items-center gap-3">
+                                <Icons.Settings />
+                                ניהול האתר
+                            </h2>
+                            <div className="flex items-center gap-2">
+                                <a
+                                    href="gemini-file-admin.html"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3 py-1.5 text-sm text-amber-700 hover:bg-amber-50 rounded-lg transition-colors flex items-center gap-1"
+                                >
+                                    סריקת תוכן
+                                </a>
+                                <button 
+                                    onClick={handleLogout}
+                                    className="px-3 py-1.5 text-sm text-stone-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                    התנתק
+                                </button>
+                                <button onClick={onClose} className="text-stone-400 hover:text-stone-600">
+                                    <Icons.X />
+                                </button>
+                            </div>
+                        </div>
+                        
+                        {/* Tabs */}
+                        <div className="flex border-b">
+                            <button
+                                onClick={() => setActiveTab('upload')}
+                                className={`flex-1 py-4 text-center font-medium transition-colors ${activeTab === 'upload' ? 'bg-amber-50 text-amber-700 border-b-2 border-amber-600' : 'text-stone-500 hover:bg-stone-50'}`}
+                            >
+                                <span className="flex items-center justify-center gap-2">
+                                    <Icons.Upload />
+                                    העלאה
+                                </span>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('subscribers')}
+                                className={`flex-1 py-4 text-center font-medium transition-colors ${activeTab === 'subscribers' ? 'bg-amber-50 text-amber-700 border-b-2 border-amber-600' : 'text-stone-500 hover:bg-stone-50'}`}
+                            >
+                                <span className="flex items-center justify-center gap-2">
+                                    <Icons.Users />
+                                    נרשמים
+                                </span>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('send')}
+                                className={`flex-1 py-4 text-center font-medium transition-colors ${activeTab === 'send' ? 'bg-amber-50 text-amber-700 border-b-2 border-amber-600' : 'text-stone-500 hover:bg-stone-50'}`}
+                            >
+                                <span className="flex items-center justify-center gap-2">
+                                    <Icons.Send />
+                                    שליחה
+                                </span>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('stats')}
+                                className={`flex-1 py-4 text-center font-medium transition-colors ${activeTab === 'stats' ? 'bg-amber-50 text-amber-700 border-b-2 border-amber-600' : 'text-stone-500 hover:bg-stone-50'}`}
+                            >
+                                <span className="flex items-center justify-center gap-2">
+                                    📊
+                                    סטטיסטיקות
+                                </span>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('site')}
+                                className={`flex-1 py-4 text-center font-medium transition-colors ${activeTab === 'site' ? 'bg-amber-50 text-amber-700 border-b-2 border-amber-600' : 'text-stone-500 hover:bg-stone-50'}`}
+                            >
+                                <span className="flex items-center justify-center gap-2">
+                                    <Icons.Settings />
+                                    אתר ואודות
+                                </span>
+                            </button>
+                        </div>
+                        
+                        {/* Content */}
+                        <div className="p-6 overflow-y-auto max-h-[60vh]">
+                            {activeTab === 'upload' && (
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-stone-700 mb-2">מספר עלון:</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            value={newsletterNumber}
+                                            onChange={(e) => setNewsletterNumber(e.target.value)}
+                                            placeholder="הזן מספר עלון (לדוגמה: 1)"
+                                            className="w-full px-4 py-3 border-2 border-stone-200 rounded-xl focus:border-amber-500 text-center text-lg font-bold"
+                                            dir="ltr"
+                                        />
+                                        {newsletterNumber && newsletters.find(n => n.number === parseInt(newsletterNumber)) && (
+                                            <p className="text-xs text-amber-600 mt-1">עלון זה כבר קיים - הקובץ יתווסף אליו</p>
+                                        )}
+                                    </div>
+
+                                    {/* קבצים קיימים בעלון זה */}
+                                    {newsletterNumber && (() => {
+                                        const existing = newsletters.find(n => n.number === parseInt(newsletterNumber));
+                                        if (!existing || !existing.files || existing.files.length === 0) return null;
+                                        return (
+                                            <div className="bg-stone-50 rounded-xl p-4">
+                                                <h4 className="font-medium text-stone-700 mb-3">קבצים קיימים בעלון {newsletterNumber}:</h4>
+                                                <div className="space-y-2">
+                                                    {existing.files.map((file, idx) => (
+                                                        <div key={idx} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                                                            <span className="text-sm text-stone-600 truncate flex-1">{file.name}</span>
+                                                            <a href={file.url} target="_blank" className="text-amber-600 hover:text-amber-700 text-sm mr-2">צפה</a>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-stone-700 mb-2">תת-כותרת (תוצג מתחת לשם העלון בסרגל):</label>
+                                        <input
+                                            type="text"
+                                            value={uploadSubtitle}
+                                            onChange={(e) => setUploadSubtitle(e.target.value)}
+                                            placeholder="לדוגמה: חנוכה תשפ״ה"
+                                            className="w-full px-4 py-3 border-2 border-stone-200 rounded-xl focus:border-amber-500"
+                                            dir="rtl"
+                                        />
+                                        <p className="text-xs text-stone-400 mt-1">אופציונלי - מוצג בכתב קטן מתחת לשם העלון</p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-stone-700 mb-2">העלה קובץ PDF או Word:</label>
+                                        <div className="border-2 border-dashed border-stone-300 rounded-xl p-8 text-center hover:border-amber-500 transition-colors">
+                                            <input
+                                                type="file"
+                                                accept=".pdf,.doc,.docx"
+                                                onChange={(e) => setUploadFile(e.target.files[0])}
+                                                className="hidden"
+                                                id="file-upload"
+                                            />
+                                            <label htmlFor="file-upload" className="cursor-pointer">
+                                                <div className="text-stone-400 mb-2 flex justify-center">
+                                                    <Icons.Upload />
+                                                </div>
+                                                {uploadFile ? (
+                                                    <p className="text-amber-700 font-medium">{uploadFile.name}</p>
+                                                ) : (
+                                                    <p className="text-stone-500">לחץ לבחירת קובץ PDF או Word</p>
+                                                )}
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div className="relative">
+                                        <label className="block text-sm font-medium text-stone-700 mb-2">
+                                            נושאים / האשטגים (מופרדים בפסיק):
+                                        </label>
+                                        <textarea
+                                            ref={topicsInputRef}
+                                            value={uploadTopics}
+                                            onChange={(e) => {
+                                                setUploadTopics(e.target.value);
+                                                const cursorPos = e.target.selectionStart;
+                                                const textBeforeCursor = e.target.value.substring(0, cursorPos);
+                                                const lastHash = textBeforeCursor.lastIndexOf('#');
+                                                if (lastHash !== -1) {
+                                                    const afterHash = textBeforeCursor.substring(lastHash + 1);
+                                                    if (!afterHash.includes(',')) {
+                                                        setShowTagSuggestions(true);
+                                                        return;
+                                                    }
+                                                }
+                                                setShowTagSuggestions(false);
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === '#') setShowTagSuggestions(true);
+                                            }}
+                                            placeholder="#בית המקדש, #עלייה לארץ ישראל, #קבלת דברי חכמים"
+                                            className="w-full px-4 py-3 border-2 border-stone-200 rounded-xl focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 resize-none h-24"
+                                            dir="rtl"
+                                        />
+                                        <p className="text-xs text-stone-400 mt-1">הקלד # כדי לראות נושאים קיימים, או כתוב נושא חדש. מופרדים בפסיק.</p>
+
+                                        {showTagSuggestions && existingTags.length > 0 && (
+                                            <div className="absolute z-10 w-full mt-1 bg-white border-2 border-amber-300 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                                                <div className="p-2 text-xs text-stone-400 border-b border-stone-100 font-medium">נושאים קיימים:</div>
+                                                {existingTags.map(tag => (
+                                                    <button
+                                                        key={tag}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const cursorPos = topicsInputRef.current?.selectionStart || uploadTopics.length;
+                                                            const textBeforeCursor = uploadTopics.substring(0, cursorPos);
+                                                            const lastHash = textBeforeCursor.lastIndexOf('#');
+                                                            const textAfterCursor = uploadTopics.substring(cursorPos);
+
+                                                            let newText;
+                                                            if (lastHash !== -1) {
+                                                                newText = textBeforeCursor.substring(0, lastHash) + '#' + tag + ', ' + textAfterCursor.replace(/^[^,]*,?\s*/, '');
+                                                            } else {
+                                                                newText = (uploadTopics ? uploadTopics + ', ' : '') + '#' + tag;
+                                                            }
+                                                            setUploadTopics(newText.replace(/,\s*$/, ''));
+                                                            setShowTagSuggestions(false);
+                                                            topicsInputRef.current?.focus();
+                                                        }}
+                                                        className="w-full text-right px-4 py-2.5 text-sm hover:bg-amber-50 transition-colors flex items-center gap-2 border-b border-stone-50 last:border-0"
+                                                    >
+                                                        <span className="text-amber-600 font-bold">#</span>
+                                                        <span className="text-stone-700">{tag}</span>
+                                                    </button>
+                                                ))}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowTagSuggestions(false)}
+                                                    className="w-full text-center py-2 text-xs text-stone-400 hover:text-stone-600 border-t border-stone-100"
+                                                >
+                                                    סגור
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <button
+                                        onClick={handleUpload}
+                                        disabled={!uploadFile || !newsletterNumber || uploading}
+                                        className="w-full py-4 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                        {uploading ? (
+                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        ) : (
+                                            <>
+                                                <Icons.Upload />
+                                                העלה קובץ
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+                            
+                            {activeTab === 'subscribers' && (
+                                <div>
+                                    <div className="bg-amber-50 rounded-xl p-4 mb-4 flex items-center justify-between">
+                                        <div>
+                                            <span className="font-medium">סה"כ נרשמים:</span>
+                                            <span className="text-2xl font-bold text-amber-700 mr-2">{subscribers.length}</span>
+                                        </div>
+                                        <button 
+                                            onClick={loadSubscribers}
+                                            className="px-4 py-2 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 text-sm font-medium"
+                                        >
+                                            🔄 רענן
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="space-y-2 max-h-80 overflow-y-auto">
+                                        {subscribers.map((sub, idx) => (
+                                            <div key={idx} className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
+                                                <span className="text-stone-700">{sub.email}</span>
+                                                <span className="text-xs text-stone-400">
+                                                    {sub.subscribedAt ? new Date(sub.subscribedAt).toLocaleDateString('he-IL') : ''}
+                                                </span>
+                                            </div>
+                                        ))}
+                                        {subscribers.length === 0 && (
+                                            <p className="text-center text-stone-400 py-8">אין נרשמים עדיין</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {activeTab === 'send' && (
+                                <div className="space-y-6">
+                                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-blue-800">
+                                        <p className="font-medium mb-1">שליחה לרשימת התפוצה</p>
+                                        <p className="text-sm">בחר את העלון שברצונך לשלוח לכל הנרשמים.</p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-stone-700 mb-2">בחר עלון לשליחה:</label>
+                                        <select
+                                            value={selectedNewsletter?.id || ''}
+                                            onChange={(e) => setSelectedNewsletter(newsletters.find(n => n.id === e.target.value))}
+                                            className="w-full px-4 py-3 border-2 border-stone-200 rounded-xl focus:border-amber-500"
+                                        >
+                                            <option value="">-- בחר עלון --</option>
+                                            {newsletters.filter(n => n.pdfUrl || n.hasFiles || (n.files && n.files.length > 0)).map(n => (
+                                                <option key={n.id} value={n.id}>עלון {n.number}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {selectedNewsletter && (
+                                        <>
+                                            <div>
+                                                <label className="block text-sm font-medium text-stone-700 mb-2">נושא המייל:</label>
+                                                <input
+                                                    type="text"
+                                                    value={emailSubject}
+                                                    onChange={(e) => setEmailSubject(e.target.value)}
+                                                    className="w-full px-4 py-3 border-2 border-stone-200 rounded-xl focus:border-amber-500"
+                                                    dir="rtl"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-stone-700 mb-2">תוכן המייל:</label>
+                                                <textarea
+                                                    value={emailBody}
+                                                    onChange={(e) => setEmailBody(e.target.value)}
+                                                    rows={4}
+                                                    className="w-full px-4 py-3 border-2 border-stone-200 rounded-xl focus:border-amber-500 resize-none"
+                                                    dir="rtl"
+                                                />
+                                                <p className="text-xs text-stone-400 mt-1">הקישור לעלון יתווסף אוטומטית למייל</p>
+                                            </div>
+
+                                            <label className="flex items-center gap-2 cursor-pointer bg-amber-50 p-3 rounded-lg border border-amber-200">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={saveAsTemplate}
+                                                    onChange={(e) => {
+                                                        setSaveAsTemplate(e.target.checked);
+                                                        if (e.target.checked) {
+                                                            const templateBody = emailBody.replace(String(selectedNewsletter.number), '[עלון]');
+                                                            localStorage.setItem('emailTemplate', JSON.stringify({ body: templateBody }));
+                                                        }
+                                                    }}
+                                                    className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
+                                                />
+                                                <span className="text-sm text-amber-800">שמור כתבנית קבועה לשבועות הבאים</span>
+                                            </label>
+                                        </>
+                                    )}
+                                    
+                                    <div className="bg-stone-50 rounded-xl p-4">
+                                        <p className="text-sm text-stone-600">
+                                            העלון יישלח ל-<strong>{subscribers.length}</strong> נרשמים
+                                        </p>
+                                    </div>
+                                    
+                                    <button
+                                        onClick={handleSendToList}
+                                        disabled={!selectedNewsletter || sendingEmail || subscribers.length === 0}
+                                        className="w-full py-4 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                        {sendingEmail ? (
+                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        ) : (
+                                            <>
+                                                <Icons.Send />
+                                                שלח לכל הנרשמים
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+                            
+                            {activeTab === 'stats' && (
+                                <div className="space-y-6">
+                                    <div className="bg-gradient-to-l from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 text-blue-800">
+                                        <p className="font-medium mb-1">📊 סטטיסטיקות האתר</p>
+                                        <p className="text-sm">נתונים על ביקורים וצפיות בעלונים</p>
+                                    </div>
+                                    
+                                    {loadingStats ? (
+                                        <div className="text-center py-8">
+                                            <div className="w-8 h-8 border-3 border-amber-200 border-t-amber-600 rounded-full animate-spin mx-auto mb-2"></div>
+                                            <p className="text-stone-500">טוען סטטיסטיקות...</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-3 gap-4">
+                                            <div className="bg-white rounded-xl p-6 border-2 border-purple-200 text-center shadow-sm">
+                                                <div className="text-4xl font-black text-purple-600 mb-2">{stats.uniqueVisitors}</div>
+                                                <div className="text-sm text-stone-600 font-medium">👥 מבקרים ייחודיים</div>
+                                                <div className="text-xs text-stone-400 mt-1">סה"כ מבקרים שונים</div>
+                                            </div>
+                                            
+                                            <div className="bg-white rounded-xl p-6 border-2 border-blue-200 text-center shadow-sm">
+                                                <div className="text-4xl font-black text-blue-600 mb-2">{stats.totalVisits}</div>
+                                                <div className="text-sm text-stone-600 font-medium">👁️ סה"כ ביקורים</div>
+                                                <div className="text-xs text-stone-400 mt-1">כולל ביקורים חוזרים</div>
+                                            </div>
+                                            
+                                            <div className="bg-white rounded-xl p-6 border-2 border-green-200 text-center shadow-sm">
+                                                <div className="text-4xl font-black text-green-600 mb-2">{stats.downloads}</div>
+                                                <div className="text-sm text-stone-600 font-medium">📄 צפיות בעלונים</div>
+                                                <div className="text-xs text-stone-400 mt-1">פתיחת עלונים</div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    <button 
+                                        onClick={async () => {
+                                            setLoadingStats(true);
+                                            const s = await loadStats();
+                                            setStats(s);
+                                            setLoadingStats(false);
+                                        }}
+                                        className="w-full py-3 bg-stone-100 text-stone-700 rounded-xl font-medium hover:bg-stone-200 flex items-center justify-center gap-2"
+                                    >
+                                        🔄 רענן נתונים
+                                    </button>
+                                    
+                                    <div className="bg-amber-50 rounded-xl p-4 border border-amber-200 text-sm text-amber-800">
+                                        <p className="font-medium mb-1">💡 הסבר:</p>
+                                        <ul className="space-y-1 text-amber-700">
+                                            <li>• <strong>מבקרים ייחודיים:</strong> כל מבקר נספר פעם אחת בלבד</li>
+                                            <li>• <strong>סה"כ ביקורים:</strong> כל כניסה לאתר (פעם ביום למבקר)</li>
+                                            <li>• <strong>צפיות בעלונים:</strong> כל פתיחה של עלון לצפייה</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'site' && (
+                                <div className="space-y-6">
+                                    <div className="bg-gradient-to-l from-amber-50 to-stone-50 border border-stone-200 rounded-xl p-4">
+                                        <p className="font-bold text-stone-800 mb-1">אתר ואודות</p>
+                                        <p className="text-sm text-stone-500">עריכת תוכן עמוד ה"אודות" וקישור התרומות. השינויים נשמרים ומוצגים לכל המבקרים.</p>
+                                    </div>
+
+                                    {/* קישור תרומות */}
+                                    <div>
+                                        <label className="block text-sm font-bold text-stone-700 mb-2">קישור לתרומות (PayBox / אחר):</label>
+                                        <input
+                                            type="url"
+                                            value={settingsForm.payboxUrl || ''}
+                                            onChange={(e) => updateSettingField('payboxUrl', e.target.value)}
+                                            placeholder="https://payboxapp.page.link/..."
+                                            className="w-full px-4 py-3 border-2 border-stone-200 rounded-xl focus:border-amber-500"
+                                            dir="ltr"
+                                        />
+                                        <p className="text-xs text-stone-400 mt-1">הקישור שמופעל בכל כפתורי "תרומה" באתר.</p>
+                                    </div>
+
+                                    <div className="h-px bg-stone-100"></div>
+
+                                    {/* פסקת פתיחה */}
+                                    <div>
+                                        <label className="block text-sm font-bold text-stone-700 mb-2">פסקת פתיחה (אודות האתר):</label>
+                                        <textarea
+                                            value={settingsForm.aboutIntro || ''}
+                                            onChange={(e) => updateSettingField('aboutIntro', e.target.value)}
+                                            rows={4}
+                                            className="w-full px-4 py-3 border-2 border-stone-200 rounded-xl focus:border-amber-500 resize-none leading-relaxed"
+                                            dir="rtl"
+                                        />
+                                    </div>
+
+                                    {/* בלוק 1 */}
+                                    <div className="bg-stone-50 rounded-xl p-4 space-y-3 border border-stone-200">
+                                        <div>
+                                            <label className="block text-sm font-medium text-stone-700 mb-2">כותרת מקטע ראשון:</label>
+                                            <input
+                                                type="text"
+                                                value={settingsForm.aboutBox1Title || ''}
+                                                onChange={(e) => updateSettingField('aboutBox1Title', e.target.value)}
+                                                className="w-full px-4 py-2.5 border-2 border-stone-200 rounded-xl focus:border-amber-500"
+                                                dir="rtl"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-stone-700 mb-2">תוכן מקטע ראשון:</label>
+                                            <textarea
+                                                value={settingsForm.aboutBox1Text || ''}
+                                                onChange={(e) => updateSettingField('aboutBox1Text', e.target.value)}
+                                                rows={3}
+                                                className="w-full px-4 py-3 border-2 border-stone-200 rounded-xl focus:border-amber-500 resize-none leading-relaxed"
+                                                dir="rtl"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* בלוק 2 */}
+                                    <div className="bg-stone-50 rounded-xl p-4 space-y-3 border border-stone-200">
+                                        <div>
+                                            <label className="block text-sm font-medium text-stone-700 mb-2">כותרת מקטע שני:</label>
+                                            <input
+                                                type="text"
+                                                value={settingsForm.aboutBox2Title || ''}
+                                                onChange={(e) => updateSettingField('aboutBox2Title', e.target.value)}
+                                                className="w-full px-4 py-2.5 border-2 border-stone-200 rounded-xl focus:border-amber-500"
+                                                dir="rtl"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-stone-700 mb-2">תוכן מקטע שני:</label>
+                                            <textarea
+                                                value={settingsForm.aboutBox2Text || ''}
+                                                onChange={(e) => updateSettingField('aboutBox2Text', e.target.value)}
+                                                rows={3}
+                                                className="w-full px-4 py-3 border-2 border-stone-200 rounded-xl focus:border-amber-500 resize-none leading-relaxed"
+                                                dir="rtl"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* קישור אתר חיצוני */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-stone-700 mb-2">כיתוב הקישור התחתון:</label>
+                                            <input
+                                                type="text"
+                                                value={settingsForm.siteUrlLabel || ''}
+                                                onChange={(e) => updateSettingField('siteUrlLabel', e.target.value)}
+                                                className="w-full px-4 py-2.5 border-2 border-stone-200 rounded-xl focus:border-amber-500"
+                                                dir="rtl"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-stone-700 mb-2">כתובת אתר בית המדרש:</label>
+                                            <input
+                                                type="url"
+                                                value={settingsForm.siteUrl || ''}
+                                                onChange={(e) => updateSettingField('siteUrl', e.target.value)}
+                                                className="w-full px-4 py-2.5 border-2 border-stone-200 rounded-xl focus:border-amber-500"
+                                                dir="ltr"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-3 pt-2">
+                                        <button
+                                            onClick={handleSaveSettings}
+                                            disabled={savingSettings}
+                                            className="py-3 px-6 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            {savingSettings ? (
+                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                            ) : (
+                                                <>
+                                                    <Icons.Check />
+                                                    שמור שינויים
+                                                </>
+                                            )}
+                                        </button>
+                                        {settingsSaved && <span className="text-green-600 text-sm font-medium">נשמר בהצלחה ✓</span>}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ========== Main App ==========
+        // זיהוי מובייל
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        function App() {
+            const [currentView, setCurrentView] = React.useState('home');
+            const [selectedNewsletter, setSelectedNewsletter] = React.useState(null);
+            const [selectedFileIndex, setSelectedFileIndex] = React.useState(0);
+            const [searchTerm, setSearchTerm] = React.useState("");
+            const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+            const [showAdmin, setShowAdmin] = React.useState(false);
+            const [newsletters, setNewsletters] = React.useState([]);
+            const [dataLoaded, setDataLoaded] = React.useState(false);
+            const [loadingNewsletter, setLoadingNewsletter] = React.useState(false);
+            const [showTopicsIndex, setShowTopicsIndex] = React.useState(false);
+            const [isAdmin, setIsAdmin] = React.useState(false);
+            const [editingNewsletter, setEditingNewsletter] = React.useState(null);
+            const [editNumber, setEditNumber] = React.useState('');
+            const [editSubtitle, setEditSubtitle] = React.useState('');
+            const [editSaving, setEditSaving] = React.useState(false);
+            const [editingTopics, setEditingTopics] = React.useState(false);
+            const [editTopicsList, setEditTopicsList] = React.useState([]);
+            const [newTopicInput, setNewTopicInput] = React.useState('');
+            const [showExistingTags, setShowExistingTags] = React.useState(false);
+            const [siteSettings, setSiteSettings] = React.useState(DEFAULT_SETTINGS);
+
+            // טעינת הגדרות האתר (אודות + קישור תרומות) בעלייה
+            React.useEffect(() => {
+                let active = true;
+                loadSiteSettings().then(s => { if (active) setSiteSettings(s); });
+                return () => { active = false; };
+            }, []);
+
+            // כל האשטגים הקיימים (לאוטוקומפליט)
+            const allExistingTags = React.useMemo(() => {
+                const tags = new Set();
+                newsletters.forEach(n => {
+                    (n.topics || []).forEach(t => {
+                        const clean = t.replace(/^#/, '').trim();
+                        if (clean) tags.add(clean);
+                    });
+                });
+                return [...tags].sort((a, b) => a.localeCompare(b, 'he'));
+            }, [newsletters]);
+
+            // מעקב אחרי מצב התחברות מנהל
+            React.useEffect(() => {
+                if (!auth) return;
+                const unsubscribe = auth.onAuthStateChanged((user) => {
+                    setIsAdmin(!!user);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            // איפוס בחירת קובץ ועריכת נושאים כשמחליפים עלון
+            React.useEffect(() => {
+                setSelectedFileIndex(0);
+                setEditingTopics(false);
+            }, [selectedNewsletter?.id]);
+
+            // עדכון selectedNewsletter כשהעלונים משתנים
+            React.useEffect(() => {
+                if (selectedNewsletter && newsletters) {
+                    const updated = newsletters.find(n => n.id === selectedNewsletter.id);
+                    if (updated && updated.pdfUrl && !selectedNewsletter.pdfUrl) {
+                        setSelectedNewsletter(updated);
+                    }
+                }
+            }, [newsletters]);
+
+            // סריקה מהירה - סורק את תיקיית newsletters ב-Firebase Storage
+            const quickScanStorage = async () => {
+                if (!storage) {
+                    console.log("Storage not available");
+                    setDataLoaded(true);
+                    setCurrentView('newsletters');
+                    return;
+                }
+
+                console.log("Quick scanning for newsletters...");
+
+                try {
+                    const rootRef = storage.ref('newsletters');
+                    const result = await rootRef.listAll();
+
+                    // כל prefix הוא תיקיית עלון
+                    const scanPromises = result.prefixes.map(async (prefix) => {
+                        const number = parseInt(prefix.name);
+                        if (isNaN(number)) return null;
+
+                        try {
+                            const folderResult = await prefix.listAll();
+                            const contentFiles = folderResult.items.filter(item =>
+                                !item.name.endsWith('_topics.json') && !item.name.endsWith('_meta.json')
+                            );
+
+                            if (contentFiles.length > 0) {
+                                // טעינת תת-כותרת מ-_meta.json
+                                let subtitle = '';
+                                const metaFile = folderResult.items.find(item => item.name === '_meta.json');
+                                if (metaFile) {
+                                    try {
+                                        const metaUrl = await metaFile.getDownloadURL();
+                                        const metaResp = await fetch(metaUrl);
+                                        const metaData = await metaResp.json();
+                                        subtitle = metaData.subtitle || '';
+                                    } catch (e) {}
+                                }
+
+                                // טעינת נושאים מקבצי _topics.json
+                                let allTopics = [];
+                                const topicsFiles = folderResult.items.filter(item => item.name.endsWith('_topics.json'));
+                                for (const tf of topicsFiles) {
+                                    try {
+                                        const tUrl = await tf.getDownloadURL();
+                                        const tResp = await fetch(tUrl);
+                                        const tData = await tResp.json();
+                                        if (tData.topics) allTopics.push(...tData.topics);
+                                    } catch (e) {}
+                                }
+                                // הסרת כפילויות
+                                allTopics = [...new Set(allTopics)];
+
+                                return {
+                                    id: `alon-${number}`,
+                                    number: number,
+                                    name: `עלון ${number}`,
+                                    subtitle: subtitle,
+                                    topics: allTopics,
+                                    hasFiles: true,
+                                    fileCount: contentFiles.length,
+                                    fileNames: contentFiles.map(item => item.name),
+                                    pdfUrl: null,
+                                    files: []
+                                };
+                            }
+                        } catch (e) {}
+                        return null;
+                    });
+
+                    const results = await Promise.all(scanPromises);
+                    const newsletterList = results.filter(r => r !== null);
+                    newsletterList.sort((a, b) => a.number - b.number);
+
+                    console.log(`Quick scan complete: found ${newsletterList.length} newsletters`);
+                    setNewsletters(newsletterList);
+                    setDataLoaded(true);
+                    setCurrentView('newsletters');
+                } catch (err) {
+                    console.log("Error scanning storage:", err);
+                    setDataLoaded(true);
+                    setCurrentView('newsletters');
+                }
+            };
+
+            // טעינת קבצים של עלון ספציפי
+            const loadNewsletterFiles = async (newsletter) => {
+                if (!storage || !newsletter.hasFiles) return;
+                if (newsletter.files && newsletter.files.length > 0) return;
+
+                setLoadingNewsletter(true);
+                console.log(`Loading files for newsletter ${newsletter.number}...`);
+
+                try {
+                    const folderRef = storage.ref(`newsletters/${newsletter.number}`);
+                    const result = await folderRef.listAll();
+
+                    const contentFiles = result.items.filter(item => !item.name.endsWith('_topics.json') && !item.name.endsWith('_meta.json'));
+                    const topicsFiles = result.items.filter(item => item.name.endsWith('_topics.json'));
+
+                    const files = [];
+                    for (const item of contentFiles) {
+                        try {
+                            const url = await item.getDownloadURL();
+                            let topics = [];
+                            const baseName = item.name.replace(/\.[^/.]+$/, '');
+                            const topicsFile = topicsFiles.find(tf =>
+                                tf.name.startsWith(baseName.split('_')[0]) && tf.name.endsWith('_topics.json')
+                            );
+
+                            if (topicsFile) {
+                                try {
+                                    const topicsUrl = await topicsFile.getDownloadURL();
+                                    const response = await fetch(topicsUrl);
+                                    const topicsData = await response.json();
+                                    topics = topicsData.topics || [];
+                                } catch (topicsErr) {
+                                    console.log(`Error loading topics:`, topicsErr);
+                                }
+                            }
+
+                            files.push({
+                                name: item.name,
+                                url: url,
+                                topics: topics,
+                                uploadedAt: new Date().toISOString()
+                            });
+                        } catch (urlErr) {
+                            console.log(`Error getting URL for ${item.name}:`, urlErr);
+                        }
+                    }
+
+                    if (files.length > 0) {
+                        const updatedNewsletters = newsletters.map(n => {
+                            if (n.id === newsletter.id) {
+                                return { ...n, files, pdfUrl: files[0].url };
+                            }
+                            return n;
+                        });
+                        setNewsletters(updatedNewsletters);
+                        setSelectedNewsletter(prev => ({ ...prev, files, pdfUrl: files[0].url }));
+                    }
+                } catch (err) {
+                    console.log("Error loading newsletter files:", err);
+                }
+
+                setLoadingNewsletter(false);
+            };
+
+            // פונקציית ניווט
+            const handleNavigate = (view) => {
+                if (view === 'newsletters' && !dataLoaded) {
+                    setCurrentView('loading');
+                    quickScanStorage();
+                } else {
+                    setCurrentView(view);
+                }
+            };
+
+            // בחירת עלון - עם טעינה עצלה
+            const handleSelectNewsletter = (newsletter) => {
+                setShowTopicsIndex(false);
+                setSelectedNewsletter(newsletter);
+                if (newsletter.hasFiles && (!newsletter.files || newsletter.files.length === 0)) {
+                    loadNewsletterFiles(newsletter);
+                }
+                if (newsletter.hasFiles || newsletter.pdfUrl || (newsletter.files && newsletter.files.length > 0)) {
+                    recordDownload(`עלון ${newsletter.number}`);
+                }
+            };
+
+            // פתיחת עריכת עלון
+            const startEditNewsletter = (e, item) => {
+                e.stopPropagation();
+                setEditingNewsletter(item);
+                setEditNumber(item.number.toString());
+                setEditSubtitle(item.subtitle || '');
+            };
+
+            // שמירת עריכת עלון
+            const saveEditNewsletter = async () => {
+                if (!editingNewsletter) return;
+                const newNumber = parseInt(editNumber);
+                if (isNaN(newNumber) || newNumber <= 0) {
+                    alert('מספר עלון לא תקין');
+                    return;
+                }
+
+                // בדיקה שהמספר לא תפוס (אם השתנה)
+                if (newNumber !== editingNewsletter.number && newsletters.some(n => n.number === newNumber)) {
+                    alert(`עלון מספר ${newNumber} כבר קיים`);
+                    return;
+                }
+
+                setEditSaving(true);
+                const oldNumber = editingNewsletter.number;
+                const numberChanged = newNumber !== oldNumber;
+                const newSubtitle = editSubtitle.trim();
+
+                try {
+                    if (storage) {
+                        if (numberChanged) {
+                            // העתקת כל הקבצים מתיקייה ישנה לחדשה
+                            const oldRef = storage.ref(`newsletters/${oldNumber}`);
+                            const result = await oldRef.listAll();
+
+                            for (const item of result.items) {
+                                const url = await item.getDownloadURL();
+                                const response = await fetch(url);
+                                const blob = await response.blob();
+                                const newFileRef = storage.ref(`newsletters/${newNumber}/${item.name}`);
+                                await newFileRef.put(blob, { contentType: blob.type });
+                            }
+
+                            // עדכון _meta.json בתיקייה חדשה
+                            const metaJson = JSON.stringify({ subtitle: newSubtitle });
+                            const metaBlob = new Blob([metaJson], { type: 'application/json' });
+                            const metaRef = storage.ref(`newsletters/${newNumber}/_meta.json`);
+                            await metaRef.put(metaBlob);
+
+                            // מחיקת קבצים ישנים
+                            for (const item of result.items) {
+                                await item.delete();
+                            }
+                        } else if (newSubtitle !== (editingNewsletter.subtitle || '')) {
+                            // רק תת-כותרת השתנתה
+                            const metaJson = JSON.stringify({ subtitle: newSubtitle });
+                            const metaBlob = new Blob([metaJson], { type: 'application/json' });
+                            const metaRef = storage.ref(`newsletters/${oldNumber}/_meta.json`);
+                            await metaRef.put(metaBlob);
+                        }
+                    }
+
+                    // עדכון מקומי
+                    const updatedNewsletters = newsletters.map(n => {
+                        if (n.id === editingNewsletter.id) {
+                            return {
+                                ...n,
+                                number: newNumber,
+                                id: `alon-${newNumber}`,
+                                name: `עלון ${newNumber}`,
+                                subtitle: newSubtitle,
+                                files: numberChanged ? [] : n.files,
+                                pdfUrl: numberChanged ? null : n.pdfUrl
+                            };
+                        }
+                        return n;
+                    }).sort((a, b) => a.number - b.number);
+
+                    setNewsletters(updatedNewsletters);
+
+                    // עדכון selectedNewsletter אם זה העלון הנבחר
+                    if (selectedNewsletter?.id === editingNewsletter.id) {
+                        const updated = updatedNewsletters.find(n => n.id === `alon-${newNumber}`);
+                        setSelectedNewsletter(updated);
+                        if (numberChanged && updated) loadNewsletterFiles(updated);
+                    }
+
+                    setEditingNewsletter(null);
+                } catch (err) {
+                    console.error('Error saving newsletter edit:', err);
+                    alert('שגיאה בשמירת השינויים');
+                }
+
+                setEditSaving(false);
+            };
+
+            // מחיקת עלון
+            const deleteNewsletter = async (item) => {
+                if (!confirm(`למחוק את עלון ${item.number}? פעולה זו תמחק את כל הקבצים ולא ניתן לשחזר.`)) return;
+
+                setEditSaving(true);
+                try {
+                    if (storage) {
+                        const folderRef = storage.ref(`newsletters/${item.number}`);
+                        const result = await folderRef.listAll();
+                        for (const file of result.items) {
+                            await file.delete();
+                        }
+                    }
+
+                    const updatedNewsletters = newsletters.filter(n => n.id !== item.id);
+                    setNewsletters(updatedNewsletters);
+
+                    if (selectedNewsletter?.id === item.id) {
+                        setSelectedNewsletter(null);
+                    }
+
+                    setEditingNewsletter(null);
+                } catch (err) {
+                    console.error('Error deleting newsletter:', err);
+                    alert('שגיאה במחיקת העלון');
+                }
+                setEditSaving(false);
+            };
+
+            // שמירת עריכת נושאים של עלון
+            const saveEditedTopics = async () => {
+                if (!selectedNewsletter) return;
+                setEditSaving(true);
+                const number = selectedNewsletter.number;
+                const newTopics = editTopicsList.map(t => t.startsWith('#') ? t : '#' + t);
+
+                try {
+                    if (storage && selectedNewsletter.files && selectedNewsletter.files.length > 0) {
+                        const file = selectedNewsletter.files[selectedFileIndex];
+                        const baseName = file.name.replace(/\.[^/.]+$/, '');
+                        const timestamp = baseName.split('_')[0];
+                        const topicsJson = JSON.stringify({ topics: newTopics });
+                        const topicsBlob = new Blob([topicsJson], { type: 'application/json' });
+                        const topicsRef = storage.ref(`newsletters/${number}/${timestamp}_${baseName.split('_').slice(1).join('_')}_topics.json`);
+                        await topicsRef.put(topicsBlob);
+                    }
+
+                    // עדכון מקומי - קבצים
+                    const updatedFiles = selectedNewsletter.files ? selectedNewsletter.files.map((f, i) =>
+                        i === selectedFileIndex ? { ...f, topics: newTopics } : f
+                    ) : [];
+
+                    // עדכון מקומי - newsletter topics (מאוחד מכל הקבצים)
+                    const allFileTopics = updatedFiles.flatMap(f => f.topics || []);
+                    const mergedTopics = [...new Set(allFileTopics)];
+
+                    const updatedNewsletter = { ...selectedNewsletter, files: updatedFiles, topics: mergedTopics };
+                    setSelectedNewsletter(updatedNewsletter);
+
+                    const updatedNewsletters = newsletters.map(n =>
+                        n.id === selectedNewsletter.id ? { ...n, topics: mergedTopics, files: updatedFiles } : n
+                    );
+                    setNewsletters(updatedNewsletters);
+
+                    setEditingTopics(false);
+                } catch (err) {
+                    console.error('Error saving topics:', err);
+                    alert('שגיאה בשמירת הנושאים');
+                }
+                setEditSaving(false);
+            };
+
+            // סינון עלונים
+            const filteredNewsletters = React.useMemo(() => {
+                if (!searchTerm) return newsletters;
+                return newsletters.filter(n =>
+                    n.number.toString().includes(searchTerm) || n.name.includes(searchTerm)
+                );
+            }, [searchTerm, newsletters]);
+
+            // אינדקס נושאים - מיפוי כל נושא לרשימת עלונים
+            const topicsIndex = React.useMemo(() => {
+                const index = {};
+                newsletters.forEach(n => {
+                    const topics = n.topics || [];
+                    topics.forEach(topic => {
+                        const clean = topic.replace(/^#/, '').trim();
+                        if (!clean) return;
+                        if (!index[clean]) index[clean] = [];
+                        index[clean].push(n.number);
+                    });
+                });
+                // מיון מספרי העלונים בכל נושא
+                Object.values(index).forEach(arr => arr.sort((a, b) => a - b));
+                return index;
+            }, [newsletters]);
+
+            // מסך טעינה
+            if (currentView === 'loading') {
+                return (
+                    <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: 'linear-gradient(135deg,#46412F 0%,#2A2620 100%)' }}>
+                        <div className="text-center">
+                            <div className="mb-8">
+                                <div className="opacity-90 flex justify-center mb-4">
+                                    <Icons.OpenBook />
+                                </div>
+                                <h1 className="text-4xl md:text-5xl font-black text-[#F3ECDB] mb-2 serif-font">
+                                    בית מדרש לשמה
+                                </h1>
+                                <p className="text-[#CDBFA3] text-lg">
+                                    כתב עת של הרב בנימין טבדי
+                                </p>
+                            </div>
+                            
+                            <div className="flex flex-col items-center">
+                                <div className="w-16 h-16 border-4 border-[#C2A86A]/30 border-t-[#C2A86A] rounded-full animate-spin mb-4"></div>
+                                <p className="text-[#CDBFA3]/80">טוען עלונים...</p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (currentView === 'home') {
+                return (
+                    <>
+                        <HomeScreen 
+                            onNavigate={handleNavigate} 
+                            subscriberCount={0}
+                            payboxUrl={siteSettings.payboxUrl}
+                        />
+                        {/* Admin Button */}
+                        <button
+                            onClick={() => setShowAdmin(true)}
+                            className="fixed bottom-6 left-6 p-3 bg-[#1C2530] text-white rounded-full shadow-lg hover:bg-[#2A3744] transition-colors z-40"
+                            title="ניהול"
+                        >
+                            <Icons.Settings />
+                        </button>
+                        {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} newsletters={newsletters} setNewsletters={setNewsletters} siteSettings={siteSettings} setSiteSettings={setSiteSettings} />}
+                    </>
+                );
+            }
+
+            return (
+                <div className="archive-scope flex h-screen w-full" dir="rtl">
+                    {/* Overlay למובייל */}
+                    {mobileMenuOpen && (
+                        <div
+                            className="fixed inset-0 bg-stone-900/40 z-40 md:hidden backdrop-blur-sm"
+                            onClick={() => setMobileMenuOpen(false)}
+                        />
+                    )}
+
+                    {/* סיידבר */}
+                    <aside className={`fixed inset-y-0 right-0 z-50 w-72 bg-white/95 backdrop-blur-md border-l border-stone-200 flex flex-col md:relative md:translate-x-0 transition-transform shadow-xl ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+                        {/* כותרת */}
+                        <div className="p-5 border-b border-stone-200 flex items-center justify-between shrink-0 bg-gradient-to-l from-amber-50 to-white">
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => setSelectedNewsletter(null)}
+                                    className="transition-opacity hover:opacity-80"
+                                    title="חזרה לעמוד הראשי"
+                                >
+                                    <img src="logo-lishmah.png" alt="לשמה" style={{ height: '34px', width: 'auto', display: 'block' }} />
+                                </button>
+                                <span className="font-bold text-xl serif-font text-stone-800">עלונים</span>
+                            </div>
+                            <button
+                                className="md:hidden text-stone-400 hover:text-stone-600"
+                                onClick={() => setMobileMenuOpen(false)}
+                            >
+                                <Icons.X />
+                            </button>
+                        </div>
+
+                        {/* חיפוש */}
+                        <div className="p-4 border-b border-stone-100 shrink-0">
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="חפש עלון..."
+                                    className="w-full pl-4 pr-10 py-3 text-sm bg-stone-50 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                                <span className="absolute right-3 top-3 text-stone-400">
+                                    <Icons.Search />
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* רשימת עלונים */}
+                        <div className="flex-1 overflow-y-auto px-3 py-4 scrollbar-thin">
+                            <div className="space-y-1">
+                                {filteredNewsletters.map(item => (
+                                    editingNewsletter?.id === item.id ? (
+                                        <div key={item.id} className="bg-amber-50 border border-amber-300 rounded-lg p-3 space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <label className="text-xs text-stone-500 shrink-0">מספר:</label>
+                                                <input
+                                                    type="number"
+                                                    value={editNumber}
+                                                    onChange={(e) => setEditNumber(e.target.value)}
+                                                    className="w-full px-2 py-1 text-sm border border-stone-300 rounded-md outline-none focus:border-amber-500"
+                                                    min="1"
+                                                />
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <label className="text-xs text-stone-500 shrink-0">כותרת:</label>
+                                                <input
+                                                    type="text"
+                                                    value={editSubtitle}
+                                                    onChange={(e) => setEditSubtitle(e.target.value)}
+                                                    placeholder="תת-כותרת (אופציונלי)"
+                                                    className="w-full px-2 py-1 text-sm border border-stone-300 rounded-md outline-none focus:border-amber-500"
+                                                />
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={saveEditNewsletter}
+                                                    disabled={editSaving}
+                                                    className="flex-1 py-1.5 text-xs font-medium bg-amber-600 text-white rounded-md hover:bg-amber-700 disabled:opacity-50"
+                                                >
+                                                    {editSaving ? 'שומר...' : 'שמור'}
+                                                </button>
+                                                <button
+                                                    onClick={() => setEditingNewsletter(null)}
+                                                    disabled={editSaving}
+                                                    className="flex-1 py-1.5 text-xs font-medium bg-stone-200 text-stone-700 rounded-md hover:bg-stone-300 disabled:opacity-50"
+                                                >
+                                                    ביטול
+                                                </button>
+                                                <button
+                                                    onClick={() => deleteNewsletter(editingNewsletter)}
+                                                    disabled={editSaving}
+                                                    className="py-1.5 px-2 text-xs font-medium bg-red-100 text-red-600 rounded-md hover:bg-red-200 disabled:opacity-50"
+                                                    title="מחיקת עלון"
+                                                >
+                                                    <Icons.Trash />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            key={item.id}
+                                            onClick={() => {
+                                                handleSelectNewsletter(item);
+                                                setMobileMenuOpen(false);
+                                            }}
+                                            className={`w-full text-right px-4 py-3 text-sm font-medium rounded-lg transition-all flex items-center justify-between group ${
+                                                selectedNewsletter?.id === item.id
+                                                    ? 'bg-gradient-to-l from-amber-100 to-amber-50 text-amber-900 shadow-sm'
+                                                    : 'text-stone-600 hover:bg-stone-50 hover:text-stone-800'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <Icons.FileText />
+                                                <div className="min-w-0">
+                                                    <div>עלון {item.number}</div>
+                                                    {item.subtitle && (
+                                                        <div className="text-xs font-light text-stone-400 truncate">{item.subtitle}</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                {isAdmin && (
+                                                    <span
+                                                        onClick={(e) => startEditNewsletter(e, item)}
+                                                        className="text-stone-300 hover:text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer p-1"
+                                                        title="עריכת עלון"
+                                                    >
+                                                        <Icons.Pencil />
+                                                    </span>
+                                                )}
+                                                {(item.pdfUrl || item.hasFiles || (item.files && item.files.length > 0)) && (
+                                                    <span className="text-green-500 opacity-70">
+                                                        <Icons.Check />
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </button>
+                                    )
+                                ))}
+
+                                {filteredNewsletters.length === 0 && (
+                                    <div className="text-center text-stone-400 py-8">
+                                        {newsletters.length === 0 ? 'אין עלונים עדיין' : 'לא נמצאו עלונים'}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* מונה עלונים וכפתורים */}
+                        <div className="p-3 border-t border-stone-200 bg-stone-50/50 space-y-2">
+                            {Object.keys(topicsIndex).length > 0 && (
+                                <button
+                                    onClick={() => {
+                                        setShowTopicsIndex(true);
+                                        setSelectedNewsletter(null);
+                                        setMobileMenuOpen(false);
+                                    }}
+                                    className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl transition-colors font-medium ${
+                                        showTopicsIndex
+                                            ? 'bg-amber-600 text-white'
+                                            : 'text-amber-700 hover:bg-amber-50'
+                                    }`}
+                                >
+                                    <Icons.Book />
+                                    רשימת נושאים
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setCurrentView('home')}
+                                className="w-full flex items-center justify-center gap-2 py-2.5 text-amber-700 hover:bg-amber-50 rounded-xl transition-colors font-medium"
+                            >
+                                <Icons.Home />
+                                חזרה לדף הבית
+                            </button>
+                            <div className="text-center text-xs text-stone-400">
+                                {newsletters.length} עלונים זמינים
+                            </div>
+                        </div>
+                    </aside>
+
+                    {/* תוכן ראשי */}
+                    <main className="flex-1 overflow-y-auto h-full w-full bg-gradient-to-br from-stone-50 to-amber-50/30">
+                        {/* Header למובייל */}
+                        <header className="p-4 md:hidden flex items-center bg-white border-b sticky top-0 z-10 shadow-sm">
+                            <button onClick={() => setMobileMenuOpen(true)} className="ml-4 text-stone-600">
+                                <Icons.Menu />
+                            </button>
+                            <span className="flex-1 text-right font-bold serif-font text-lg">בית מדרש לשמה</span>
+                        </header>
+
+                        <div className="max-w-5xl mx-auto p-6 md:p-12">
+                            {showTopicsIndex ? (
+                                <div className="animate-fade-in">
+                                    <div className="mb-8 pb-6 border-b-2 border-amber-200">
+                                        <h1 className="text-4xl md:text-5xl font-black text-stone-800 serif-font">רשימת נושאים</h1>
+                                        <p className="text-lg text-stone-500 mt-2 font-light">כל הנושאים שנידונו בעלונים</p>
+                                    </div>
+                                    <div className="space-y-6">
+                                        {Object.entries(topicsIndex).sort((a, b) => a[0].localeCompare(b[0], 'he')).map(([topic, numbers]) => (
+                                            <div key={topic} className="bg-white rounded-xl p-5 border border-stone-200 shadow-sm">
+                                                <h2 className="text-xl font-bold text-stone-800 serif-font mb-3">#{topic}</h2>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {numbers.map(num => {
+                                                        const nl = newsletters.find(n => n.number === num);
+                                                        return (
+                                                            <button
+                                                                key={num}
+                                                                onClick={() => {
+                                                                    setShowTopicsIndex(false);
+                                                                    if (nl) handleSelectNewsletter(nl);
+                                                                }}
+                                                                className="px-4 py-2 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors text-sm font-medium"
+                                                            >
+                                                                <span>עלון {num}</span>
+                                                                {nl?.subtitle && (
+                                                                    <span className="text-xs text-stone-400 mr-2">- {nl.subtitle}</span>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : selectedNewsletter ? (
+                                <div className="animate-fade-in">
+                                    {/* כותרת העלון */}
+                                    <div className="mb-8 pb-6 border-b-2 border-amber-200">
+                                        <h1 className="text-4xl md:text-5xl font-black text-stone-800 serif-font">
+                                            עלון מספר {selectedNewsletter.number}
+                                        </h1>
+                                        {selectedNewsletter.subtitle && (
+                                            <p className="text-lg text-stone-500 mt-2 font-light">{selectedNewsletter.subtitle}</p>
+                                        )}
+                                    </div>
+
+                                    {/* בורר קבצים אם יש יותר מאחד */}
+                                    {selectedNewsletter.files && selectedNewsletter.files.length > 1 && (
+                                        <div className="mb-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
+                                            <label className="block text-sm font-medium text-amber-800 mb-2">
+                                                בחר קובץ להצגה ({selectedNewsletter.files.length} קבצים זמינים):
+                                            </label>
+                                            <select
+                                                value={selectedFileIndex}
+                                                onChange={(e) => setSelectedFileIndex(Number(e.target.value))}
+                                                className="w-full px-4 py-3 bg-white border-2 border-amber-300 rounded-lg focus:border-amber-500 font-medium"
+                                            >
+                                                {selectedNewsletter.files.map((file, idx) => (
+                                                    <option key={idx} value={idx}>
+                                                        {file.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    {/* תצוגת נושאים */}
+                                    {(
+                                        (selectedNewsletter.files &&
+                                         selectedNewsletter.files[selectedFileIndex]?.topics &&
+                                         selectedNewsletter.files[selectedFileIndex].topics.length > 0) ||
+                                        (isAdmin)
+                                    ) && (
+                                        <div className="mb-6 p-5 bg-gradient-to-l from-stone-50 to-stone-100 rounded-xl border border-stone-200">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className="text-sm font-bold text-stone-700">נושאים בעלון זה:</span>
+                                                {isAdmin && !editingTopics && (
+                                                    <button
+                                                        onClick={() => {
+                                                            const currentTopics = selectedNewsletter.files?.[selectedFileIndex]?.topics || [];
+                                                            setEditTopicsList(currentTopics.map(t => t.replace(/^#/, '').trim()));
+                                                            setEditingTopics(true);
+                                                            setNewTopicInput('');
+                                                        }}
+                                                        className="text-stone-400 hover:text-amber-600 transition-colors p-1"
+                                                        title="עריכת נושאים"
+                                                    >
+                                                        <Icons.Pencil />
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {editingTopics ? (
+                                                <div className="space-y-3">
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {editTopicsList.map((topic, idx) => (
+                                                            <span
+                                                                key={idx}
+                                                                className="px-3 py-1.5 bg-white text-stone-700 text-sm rounded-full border border-stone-200 shadow-sm flex items-center gap-2"
+                                                            >
+                                                                #{topic}
+                                                                <button
+                                                                    onClick={() => setEditTopicsList(editTopicsList.filter((_, i) => i !== idx))}
+                                                                    className="text-red-400 hover:text-red-600 transition-colors"
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                                                </button>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+
+                                                    <div className="relative">
+                                                        <div className="flex gap-2">
+                                                            <input
+                                                                type="text"
+                                                                value={newTopicInput}
+                                                                onChange={(e) => {
+                                                                    setNewTopicInput(e.target.value);
+                                                                    if (e.target.value.includes('#')) setShowExistingTags(true);
+                                                                }}
+                                                                onFocus={() => { if (newTopicInput.includes('#') || newTopicInput === '') setShowExistingTags(true); }}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter' && newTopicInput.trim()) {
+                                                                        e.preventDefault();
+                                                                        const clean = newTopicInput.replace(/^#/, '').trim();
+                                                                        if (clean && !editTopicsList.includes(clean)) {
+                                                                            setEditTopicsList([...editTopicsList, clean]);
+                                                                        }
+                                                                        setNewTopicInput('');
+                                                                        setShowExistingTags(false);
+                                                                    }
+                                                                }}
+                                                                placeholder="הקלד נושא חדש או # לבחירה..."
+                                                                className="flex-1 px-3 py-2 text-sm border border-stone-300 rounded-lg outline-none focus:border-amber-500"
+                                                                dir="rtl"
+                                                            />
+                                                            <button
+                                                                onClick={() => {
+                                                                    const clean = newTopicInput.replace(/^#/, '').trim();
+                                                                    if (clean && !editTopicsList.includes(clean)) {
+                                                                        setEditTopicsList([...editTopicsList, clean]);
+                                                                    }
+                                                                    setNewTopicInput('');
+                                                                    setShowExistingTags(false);
+                                                                }}
+                                                                className="px-3 py-2 text-sm bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200"
+                                                            >
+                                                                הוסף
+                                                            </button>
+                                                        </div>
+
+                                                        {showExistingTags && allExistingTags.length > 0 && (
+                                                            <div className="absolute z-10 w-full mt-1 bg-white border-2 border-amber-300 rounded-xl shadow-lg max-h-40 overflow-y-auto">
+                                                                <div className="p-2 text-xs text-stone-400 border-b border-stone-100 font-medium">נושאים קיימים:</div>
+                                                                {allExistingTags
+                                                                    .filter(tag => !editTopicsList.includes(tag))
+                                                                    .map(tag => (
+                                                                    <button
+                                                                        key={tag}
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            if (!editTopicsList.includes(tag)) {
+                                                                                setEditTopicsList([...editTopicsList, tag]);
+                                                                            }
+                                                                            setNewTopicInput('');
+                                                                            setShowExistingTags(false);
+                                                                        }}
+                                                                        className="w-full text-right px-4 py-2 text-sm hover:bg-amber-50 transition-colors flex items-center gap-2 border-b border-stone-50 last:border-0"
+                                                                    >
+                                                                        <span className="text-amber-600 font-bold">#</span>
+                                                                        <span className="text-stone-700">{tag}</span>
+                                                                    </button>
+                                                                ))}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowExistingTags(false)}
+                                                                    className="w-full text-center py-1.5 text-xs text-stone-400 hover:text-stone-600 border-t border-stone-100"
+                                                                >
+                                                                    סגור
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="flex gap-2 pt-1">
+                                                        <button
+                                                            onClick={saveEditedTopics}
+                                                            disabled={editSaving}
+                                                            className="px-4 py-2 text-xs font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50"
+                                                        >
+                                                            {editSaving ? 'שומר...' : 'שמור שינויים'}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => { setEditingTopics(false); setShowExistingTags(false); }}
+                                                            disabled={editSaving}
+                                                            className="px-4 py-2 text-xs font-medium bg-stone-200 text-stone-700 rounded-lg hover:bg-stone-300 disabled:opacity-50"
+                                                        >
+                                                            ביטול
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {(selectedNewsletter.files?.[selectedFileIndex]?.topics || []).length > 0 ? (
+                                                        selectedNewsletter.files[selectedFileIndex].topics.map((topic, idx) => (
+                                                            <span
+                                                                key={idx}
+                                                                className="px-3 py-1.5 bg-white text-stone-700 text-sm rounded-full border border-stone-200 shadow-sm"
+                                                            >
+                                                                {topic}
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-xs text-stone-400">אין נושאים - לחץ על העיפרון להוספה</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* תצוגת PDF */}
+                                    <PDFViewer
+                                        pdfUrl={
+                                            selectedNewsletter.files && selectedNewsletter.files.length > 0
+                                                ? selectedNewsletter.files[selectedFileIndex]?.url
+                                                : selectedNewsletter.pdfUrl
+                                        }
+                                        fileName={
+                                            selectedNewsletter.files && selectedNewsletter.files.length > 0
+                                                ? selectedNewsletter.files[selectedFileIndex]?.name
+                                                : `עלון-${selectedNewsletter.number}.pdf`
+                                        }
+                                        isLoading={loadingNewsletter}
+                                    />
+                                </div>
+                            ) : (
+                                <div className="animate-fade-in">
+                                    {/* אודות בית המדרש */}
+                                    <div className="max-w-3xl mx-auto">
+                                        {/* כותרת בית המדרש */}
+                                        <div className="relative mb-10 rounded-2xl p-10 md:p-14 overflow-hidden text-center" style={{background: 'linear-gradient(135deg, #46412F 0%, #2A2620 100%)'}}>
+                                            <div className="flex justify-center mb-4 text-[#C2A86A]">
+                                                <Icons.OpenBook />
+                                            </div>
+                                            <h1 className="text-4xl md:text-5xl font-black text-[#F3ECDB] serif-font mb-3">
+                                                בית מדרש לשמה
+                                            </h1>
+                                            <div className="flex items-center justify-center gap-3">
+                                                <span className="h-px w-10 bg-[#C2A86A]/50"></span>
+                                                <p className="text-base text-[#D8C39A] font-semibold tracking-wide">כתב עת</p>
+                                                <span className="h-px w-10 bg-[#C2A86A]/50"></span>
+                                            </div>
+                                            <p className="text-[#CDBFA3] mt-2">
+                                                של הרב בנימין טבדי
+                                            </p>
+                                        </div>
+                                        
+                                        <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
+                                            <div className="bg-gradient-to-l from-amber-50 to-stone-50 p-6 border-b border-stone-200">
+                                                <h2 className="text-2xl font-bold text-stone-800 serif-font">
+                                                    אודות האתר
+                                                </h2>
+                                            </div>
+                                            
+                                            <div className="p-6 space-y-6 text-stone-700 leading-relaxed">
+                                                <p style={{ whiteSpace: 'pre-wrap' }}>{siteSettings.aboutIntro}</p>
+                                                
+                                                <div className="bg-amber-50 rounded-xl p-5 border border-amber-200">
+                                                    <h3 className="font-bold text-lg text-stone-800 mb-3">{siteSettings.aboutBox1Title}</h3>
+                                                    <p style={{ whiteSpace: 'pre-wrap' }}>{siteSettings.aboutBox1Text}</p>
+                                                </div>
+                                                
+                                                <div className="bg-stone-50 rounded-xl p-5 border border-stone-200">
+                                                    <h3 className="font-bold text-lg text-stone-800 mb-3">{siteSettings.aboutBox2Title}</h3>
+                                                    <p style={{ whiteSpace: 'pre-wrap' }}>{siteSettings.aboutBox2Text}</p>
+                                                </div>
+                                                
+                                                <div className="text-center pt-4">
+                                                    <a 
+                                                        href={siteSettings.siteUrl} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-2 text-amber-700 hover:text-amber-800 font-medium"
+                                                    >
+                                                        {siteSettings.siteUrlLabel || 'לאתר בית המדרש המלא'}
+                                                        <Icons.ChevronLeft />
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="mt-8 text-center">
+                                            <div className="inline-flex items-center gap-2 text-stone-500 bg-stone-100 px-4 py-2 rounded-full">
+                                                <Icons.Book />
+                                                <span>בחר עלון מהרשימה כדי לצפות בו</span>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* כפתור תרומה */}
+                                        <div className="mt-8 text-center">
+                                            <a
+                                                href={siteSettings.payboxUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl font-bold hover:from-amber-600 hover:to-amber-700 transition-all shadow-lg hover:shadow-xl"
+                                            >
+                                                <span className="text-xl">♥</span>
+                                                תרומה להוצאת העלון
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </main>
+
+                    {/* Admin Button */}
+                    <button
+                        onClick={() => setShowAdmin(true)}
+                        className="fixed bottom-6 left-6 p-3 bg-[#1C2530] text-white rounded-full shadow-lg hover:bg-[#2A3744] transition-colors z-40"
+                        title="ניהול"
+                    >
+                        <Icons.Settings />
+                    </button>
+
+                    {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} newsletters={newsletters} setNewsletters={setNewsletters} siteSettings={siteSettings} setSiteSettings={setSiteSettings} />}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+
+    <!-- Bootstrap: compile the app with Babel's classic JSX runtime so it runs as a normal script
+         (avoids the automatic runtime emitting ES `import` statements that break in-browser). -->
+    <script>
+        (function () {
+            function runApp() {
+                try {
+                    var src = document.getElementById('app-src').textContent;
+                    var out = Babel.transform(src, { presets: [['react', { runtime: 'classic' }]] }).code;
+                    var s = document.createElement('script');
+                    s.textContent = out + '\n//# sourceURL=app.js';
+                    document.body.appendChild(s);
+                } catch (e) {
+                    console.error('App bootstrap error:', e);
+                }
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', runApp);
+            } else {
+                runApp();
+            }
+        })();
+    </script>
+</body>
+</html>
