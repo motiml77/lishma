@@ -468,7 +468,23 @@
             const uploadRabbiImage = async (file) => { if (!file) return; if (file.size > 2 * 1024 * 1024) { alert("התמונה גדולה מדי (מקסימום 2MB)"); return; } setUploadingRabbiImage(true); try { const storageRef = ref(storage, "settings/rabbiProfile.jpg"); await uploadBytes(storageRef, file); const url = await getDownloadURL(storageRef); setRabbiFormData(prev => ({ ...prev, imageUrl: url })); } catch (err) { alert("שגיאה: " + err.message); } finally { setUploadingRabbiImage(false); } };
 
             const savePaymentLink = async (field) => { try { const updated = { ...paymentLinks, [field]: paymentLinkInput }; await setDoc(doc(db, "settings", "paymentLinks"), updated); setEditingPaymentLink(null); setPaymentLinkInput(''); } catch (e) { alert("שגיאה: " + e.message); } };
-            const saveNotification = async (field) => { try { const updated = { ...notifications, [field]: notifInput }; await setDoc(doc(db, "settings", "notifications"), updated, { merge: true }); setEditingNotif(null); setNotifInput(''); } catch (e) { alert("שגיאה: " + e.message); } };
+            const saveNotification = async (field) => {
+                try {
+                    const val = (notifInput || '').trim();
+                    if (field === 'web3formsKey' && val && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)) {
+                        alert('מפתח שליחת המייל אינו תקין.\nה-Access Key של Web3Forms הוא קוד בפורמט UUID, למשל:\n1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d\n\nהיכנס ל-web3forms.com, הזן את מייל המנהל, והעתק את ה-Access Key המלא שנשלח אליך.');
+                        return;
+                    }
+                    if (field === 'managerEmail' && val && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val)) {
+                        alert('כתובת המייל אינה תקינה.');
+                        return;
+                    }
+                    const updated = { ...notifications, [field]: val };
+                    await setDoc(doc(db, "settings", "notifications"), updated, { merge: true });
+                    setEditingNotif(null); setNotifInput('');
+                    if (field === 'web3formsKey' && val) alert('✓ מפתח שליחת המייל נשמר בהצלחה.\nשים לב: בפעם הראשונה Web3Forms שולח מייל אימות לכתובת שאיתה נרשמת — חובה לאשר אותו, אחרת המיילים לא יישלחו.');
+                } catch (e) { alert("שגיאה: " + e.message); }
+            };
 
             // פתיחת רשימת ההזמנות — לוכד את זמן הצפייה הקודם כדי לסמן 'חדש' רק להזמנות שנוספו מאז
             const openOrders = () => {
