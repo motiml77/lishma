@@ -168,7 +168,7 @@
     <script type="text/babel" data-type="module" data-presets="react">
         import React, { useState, useEffect } from 'react';
         import { createRoot } from 'react-dom/client';
-        import { ChevronRight, ChevronLeft, Scroll, FileText, BookOpenCheck, Check, Globe, Lock, Plus, Trash2, Save, X, Edit3, BookOpen, ChevronDown, UploadCloud, GripVertical, Image as ImageIcon, FileUp, Loader2, MapPin, Package, Download, UserCog, ShieldCheck, LogOut, KeyRound, Crown, ShoppingCart, Users, User } from 'lucide-react';
+        import { ChevronRight, ChevronLeft, Scroll, FileText, BookOpenCheck, Check, Globe, Lock, Plus, Trash2, Save, X, Edit3, BookOpen, ChevronDown, UploadCloud, GripVertical, Image as ImageIcon, FileUp, Loader2, MapPin, Package, Download, UserCog, ShieldCheck, LogOut, KeyRound, Crown, ShoppingCart, Users, User, Settings } from 'lucide-react';
         import { initializeApp } from "firebase/app";
         import { getFirestore, collection, doc, setDoc, updateDoc, addDoc, deleteDoc, onSnapshot, writeBatch, query, orderBy, serverTimestamp, getDoc } from "firebase/firestore";
         import { getStorage, ref, uploadBytes, getDownloadURL, listAll, deleteObject } from "firebase/storage";
@@ -245,6 +245,7 @@
             const [orders, setOrders] = useState([]);
             const [ordersLoading, setOrdersLoading] = useState(true);
             const [editingOrderId, setEditingOrderId] = useState(null);
+            const [ordersBaseline, setOrdersBaseline] = useState(0);
             const [editOrderData, setEditOrderData] = useState({});
             const DEFAULT_BIT_URL = 'https://www.bitpay.co.il/app/me/F2DC5A6B-A704-0679-391A-774B7D5C126FBA38';
             const DEFAULT_PAYBOX_URL = 'https://links.payboxapp.com/4o515zMts0b';
@@ -370,7 +371,7 @@
                             if (role) {
                                 setUserRole(role);
                                 setIsStaffMode(true);
-                                if (role === 'secretary') setShowOrdersModal(true);
+                                if (role === 'secretary') openOrders();
                             } else {
                                 alert("אין לך הרשאות גישה למערכת זו.");
                                 await signOut(auth);
@@ -468,6 +469,15 @@
 
             const savePaymentLink = async (field) => { try { const updated = { ...paymentLinks, [field]: paymentLinkInput }; await setDoc(doc(db, "settings", "paymentLinks"), updated); setEditingPaymentLink(null); setPaymentLinkInput(''); } catch (e) { alert("שגיאה: " + e.message); } };
             const saveNotification = async (field) => { try { const updated = { ...notifications, [field]: notifInput }; await setDoc(doc(db, "settings", "notifications"), updated, { merge: true }); setEditingNotif(null); setNotifInput(''); } catch (e) { alert("שגיאה: " + e.message); } };
+
+            // פתיחת רשימת ההזמנות — לוכד את זמן הצפייה הקודם כדי לסמן 'חדש' רק להזמנות שנוספו מאז
+            const openOrders = () => {
+                let prev = 0;
+                try { prev = parseInt(localStorage.getItem('lishma_store_orders_lastSeen') || '0', 10) || 0; } catch (e) { }
+                setOrdersBaseline(prev);
+                try { localStorage.setItem('lishma_store_orders_lastSeen', String(Date.now())); } catch (e) { }
+                setShowOrdersModal(true);
+            };
 
             const startOrderEdit = (order) => { setEditingOrderId(order.id); setEditOrderData({ ...order }); };
             const cancelOrderEdit = () => { setEditingOrderId(null); setEditOrderData({}); };
@@ -848,10 +858,17 @@
                                             <td className="p-3 text-xs text-gray-500">{order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleDateString("he-IL") : "-"}</td>
                                             <td className="p-3">
                                                 {editingOrderId === order.id ? (
-                                                    <select className="p-1 border rounded text-xs" value={editOrderData.status} onChange={e => setEditOrderData({ ...editOrderData, status: e.target.value })}>
-                                                        <option value="חדש">חדש</option><option value="בטיפול">בטיפול</option><option value="נשלח">נשלח</option><option value="נמסר">נמסר</option><option value="בוטל">בוטל</option>
+                                                    <select className="p-1 border rounded text-xs" value={(editOrderData.status && editOrderData.status !== 'חדש') ? editOrderData.status : ''} onChange={e => setEditOrderData({ ...editOrderData, status: e.target.value })}>
+                                                        <option value="">— חדש/נצפה (אוטומטי)</option><option value="בטיפול">בטיפול</option><option value="נשלח">נשלח</option><option value="נמסר">נמסר</option><option value="בוטל">בוטל</option>
                                                     </select>
-                                                ) : <span className={`px-2 py-1 rounded text-xs ${order.status === 'חדש' ? 'bg-yellow-100 text-yellow-800' : order.status === 'נמסר' ? 'bg-green-100 text-green-800' : 'bg-gray-100'}`}>{order.status || 'חדש'}</span>}
+                                                ) : (() => {
+                                                    const ts = order.timestamp ? order.timestamp.seconds * 1000 : 0;
+                                                    const isUnseen = ts > ordersBaseline;
+                                                    const manual = (order.status && order.status !== 'חדש') ? order.status : null;
+                                                    const disp = manual || (isUnseen ? 'חדש' : 'נצפה');
+                                                    const cls = disp === 'חדש' ? 'bg-yellow-100 text-yellow-800' : disp === 'נמסר' ? 'bg-green-100 text-green-800' : disp === 'בוטל' ? 'bg-red-100 text-red-700' : disp === 'נצפה' ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-blue-700';
+                                                    return <span className={`px-2 py-1 rounded text-xs ${cls}`}>{disp}</span>;
+                                                })()}
                                             </td>
                                             <td className="p-3">{editingOrderId === order.id ? <input className="border rounded p-1 w-24" value={editOrderData.customerName} onChange={e => setEditOrderData({ ...editOrderData, customerName: e.target.value })} /> : order.customerName}</td>
                                             <td className="p-3">{editingOrderId === order.id ? <input className="border rounded p-1 w-24" value={editOrderData.customerPhone} onChange={e => setEditOrderData({ ...editOrderData, customerPhone: e.target.value })} /> : <a href={`tel:${order.customerPhone}`} className="text-blue-600 underline">{order.customerPhone}</a>}</td>
@@ -956,7 +973,7 @@
                                         <button onClick={openRabbiEdit} className="bg-amber-600 px-2 py-1 rounded hover:bg-amber-500 transition-colors flex gap-1 items-center text-sm ml-2" title="פרופיל הרב"><User size={16} /> פרופיל הרב</button>
                                     </>
                                 )}
-                                <button onClick={() => setShowOrdersModal(true)} className="bg-orange-600 px-2 py-1 rounded hover:bg-orange-500 transition-colors flex gap-1 items-center text-sm ml-2"><Package size={16} /> הזמנות</button>
+                                <button onClick={openOrders} className="bg-orange-600 px-2 py-1 rounded hover:bg-orange-500 transition-colors flex gap-1 items-center text-sm ml-2"><Package size={16} /> הזמנות</button>
                             </div>
                             <div className="flex gap-2">
                                 {userRole === 'admin' && (
@@ -1229,8 +1246,19 @@
 
                     <footer className="w-full py-6 text-center text-[#8d6e63] text-sm bg-[#f3e5ce] mt-auto relative group">
                         <p>© כל הזכויות שמורות לבית מדרש 'לשמה'</p>
-                        {!user && <button onClick={() => setShowLogin(true)} className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 text-xs">כניסת מנהל</button>}
                     </footer>
+
+                    {/* כפתור כניסת מנהל */}
+                    {!user && (
+                        <button
+                            onClick={() => setShowLogin(true)}
+                            className="fixed bottom-6 left-6 p-3 bg-[#2C1810] text-white rounded-full shadow-lg hover:bg-[#3d2a1f] transition-colors z-40"
+                            title="כניסת מנהל"
+                            aria-label="כניסת מנהל"
+                        >
+                            <Settings size={22} />
+                        </button>
+                    )}
 
                     {showLogin && (
                         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
